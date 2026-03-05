@@ -373,6 +373,7 @@ fi
 fi  # end INSTALL_MODE guard for credentials
 
 # ── 11. Prepare + import workflows ──────────────────────────
+declare -A WF_IDS
 if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ]; then
   echo -e "\n${GREEN}📦 Skipping workflow import (update mode — use --force to reimport)${NC}"
 else
@@ -398,8 +399,6 @@ for f in workflows/*.json; do
   [ -n "$POSTGRES_CRED_ID" ] && [ "$POSTGRES_CRED_ID" != "REPLACE_WITH_YOUR_CREDENTIAL_ID" ] && \
     sed -i "s|REPLACE_WITH_YOUR_CREDENTIAL_ID\", \"name\": \"Supabase Postgres\"|${POSTGRES_CRED_ID}\", \"name\": \"Supabase Postgres\"|g" "$out"
 done
-
-declare -A WF_IDS
 IMPORT_ORDER="mcp-client reminder-factory mcp-weather-example workflow-builder mcp-builder n8n-claw-agent"
 
 for name in $IMPORT_ORDER; do
