@@ -17,6 +17,11 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Required extensions (n8n migrations need uuid_generate_v4)
+--
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+--
 -- Name: public; Type: SCHEMA; Schema: -; Owner: pg_database_owner
 --
 
