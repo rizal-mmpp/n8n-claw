@@ -638,10 +638,23 @@ if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ] && [ -z "${E
     set_env EMBEDDING_API_KEY "$EMBEDDING_API_KEY"
     set_env EMBEDDING_PROVIDER "$EMBEDDING_PROVIDER"
     set_env EMBEDDING_MODEL "$EMBEDDING_MODEL"
+    # Write embedding config to DB (tools_config table)
+    LANG=C LC_ALL=C PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U postgres -d postgres -c "
+      INSERT INTO tools_config (tool_name, config, enabled)
+      VALUES ('embedding', jsonb_build_object('provider','${EMBEDDING_PROVIDER:-openai}','api_key','${EMBEDDING_API_KEY}','model','${EMBEDDING_MODEL:-text-embedding-3-small}'), true)
+      ON CONFLICT (tool_name) DO UPDATE SET config = EXCLUDED.config, enabled = true, updated_at = now();
+    " > /dev/null 2>&1
     echo -e "  ${GREEN}✅ Embeddings configured (${EMBEDDING_PROVIDER}/${EMBEDDING_MODEL})${NC}"
-    echo -e "  ${YELLOW}Restart n8n to apply: docker compose up -d n8n${NC}"
   else
     echo -e "  ⏭️  Skipped — using keyword search"
+  fi
+  # Write anthropic key to DB in update mode too
+  if [ -n "$ANTHROPIC_API_KEY" ] && [[ "$ANTHROPIC_API_KEY" != "your_"* ]]; then
+    LANG=C LC_ALL=C PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U postgres -d postgres -c "
+      INSERT INTO tools_config (tool_name, config, enabled)
+      VALUES ('anthropic', jsonb_build_object('api_key','${ANTHROPIC_API_KEY}'), true)
+      ON CONFLICT (tool_name) DO UPDATE SET config = EXCLUDED.config, enabled = true, updated_at = now();
+    " > /dev/null 2>&1
   fi
 fi
 
@@ -733,6 +746,23 @@ if [ -n "$EMBEDDING_API_KEY_INPUT" ]; then
   echo -e "  ${GREEN}✅ Embeddings configured (${EMBEDDING_PROVIDER}/${EMBEDDING_MODEL})${NC}"
 else
   echo -e "  ⏭️  Skipped — using keyword search"
+fi
+
+# Write embedding + anthropic config to DB (tools_config table)
+# Workflows read config from DB at runtime, not from env vars
+if [ -n "$EMBEDDING_API_KEY" ]; then
+  LANG=C LC_ALL=C PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U postgres -d postgres -c "
+    INSERT INTO tools_config (tool_name, config, enabled)
+    VALUES ('embedding', jsonb_build_object('provider','${EMBEDDING_PROVIDER:-openai}','api_key','${EMBEDDING_API_KEY}','model','${EMBEDDING_MODEL:-text-embedding-3-small}'), true)
+    ON CONFLICT (tool_name) DO UPDATE SET config = EXCLUDED.config, enabled = true, updated_at = now();
+  " > /dev/null 2>&1
+fi
+if [ -n "$ANTHROPIC_API_KEY" ] && [[ "$ANTHROPIC_API_KEY" != "your_"* ]]; then
+  LANG=C LC_ALL=C PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U postgres -d postgres -c "
+    INSERT INTO tools_config (tool_name, config, enabled)
+    VALUES ('anthropic', jsonb_build_object('api_key','${ANTHROPIC_API_KEY}'), true)
+    ON CONFLICT (tool_name) DO UPDATE SET config = EXCLUDED.config, enabled = true, updated_at = now();
+  " > /dev/null 2>&1
 fi
 
 N8N_URL_FOR_MCP="${DOMAIN:+https://$DOMAIN}"
@@ -878,8 +908,7 @@ if [ "$INSTALL_MODE" = "update" ]; then
   fi
   if [ -z "${EMBEDDING_API_KEY}" ]; then
     echo ""
-    echo -e "  ${CYAN}💡 Tip: Enable semantic memory search by setting EMBEDDING_API_KEY in .env${NC}"
-    echo -e "  ${CYAN}   Run './setup.sh --force' to reimport workflows with RAG support${NC}"
+    echo -e "  ${CYAN}💡 Tip: Run './setup.sh' again to configure semantic memory search (RAG)${NC}"
   fi
   echo ""
   exit 0

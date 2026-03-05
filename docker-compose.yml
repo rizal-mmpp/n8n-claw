@@ -18,13 +18,8 @@ services:
       - GENERIC_TIMEZONE=${TIMEZONE:-Europe/Berlin}
       - N8N_LOG_LEVEL=info
       - N8N_SECURE_COOKIE=false
-      # Anthropic API key (used by Memory Consolidation workflow)
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # Embedding provider for RAG / vector memory
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
-      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
-      - OLLAMA_URL=${OLLAMA_URL:-}
+      # API keys (Anthropic, Embeddings) are stored in DB (tools_config table)
+      # and read by workflows at runtime via PostgREST — not as env vars
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=db
       - DB_POSTGRESDB_PORT=5432
