@@ -62,6 +62,29 @@ _load_env() {
 }
 _load_env
 
+# Helper: set env var in .env (update if exists, append if not) + export
+set_env() {
+  local key="$1" val="$2"
+  if grep -q "^${key}=" .env; then
+    sed -i "s|^${key}=.*|${key}=${val}|" .env
+  else
+    echo "${key}=${val}" >> .env
+  fi
+  export "$key"="$val"
+}
+
+# ── Detect install mode ──────────────────────────────────────
+INSTALL_MODE="fresh"
+FORCE_FLAG=""
+[[ "$1" == "--force" ]] && FORCE_FLAG="--force"
+
+if docker volume inspect n8n-claw_n8n_data > /dev/null 2>&1; then
+  INSTALL_MODE="update"
+  CYAN='\033[0;36m'
+  echo -e "\n${CYAN}🔄 Existing installation detected — running in update mode${NC}"
+  echo "  Use --force to reimport workflows and reconfigure personality"
+fi
+
 ask() {
   local var="$1" prompt="$2" current="${!1}" secret="$4"
   if [ -n "$current" ] && [[ "$current" != your_* ]]; then
@@ -85,17 +108,27 @@ ask() {
 }
 
 # ── 3. Generate all crypto keys BEFORE any docker start ─────
+# In update mode: recover encryption key from existing Docker volume
+if [ "$INSTALL_MODE" = "update" ]; then
+  VOLUME_KEY=$(docker run --rm -v n8n-claw_n8n_data:/data alpine \
+    cat /data/.n8n/config 2>/dev/null | grep -o '"encryptionKey":"[^"]*"' | cut -d'"' -f4)
+  if [ -n "$VOLUME_KEY" ]; then
+    N8N_ENCRYPTION_KEY="$VOLUME_KEY"
+    set_env "N8N_ENCRYPTION_KEY" "$N8N_ENCRYPTION_KEY"
+    echo "  ✅ Encryption key recovered from existing volume"
+  fi
+fi
 if [ -z "$N8N_ENCRYPTION_KEY" ] || [[ "$N8N_ENCRYPTION_KEY" == "your_"* ]]; then
   N8N_ENCRYPTION_KEY=$(openssl rand -hex 16)
-  grep -q "^N8N_ENCRYPTION_KEY=" .env && sed -i "s|^N8N_ENCRYPTION_KEY=.*|N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY|" .env || echo "N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY" >> .env
+  set_env "N8N_ENCRYPTION_KEY" "$N8N_ENCRYPTION_KEY"
 fi
 if [ -z "$POSTGRES_PASSWORD" ] || [[ "$POSTGRES_PASSWORD" == "changeme" ]]; then
   POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
-  grep -q "^POSTGRES_PASSWORD=" .env && sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" .env || echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
+  set_env "POSTGRES_PASSWORD" "$POSTGRES_PASSWORD"
 fi
 if [ -z "$SUPABASE_JWT_SECRET" ]; then
   SUPABASE_JWT_SECRET=$(openssl rand -base64 32)
-  grep -q "^SUPABASE_JWT_SECRET=" .env && sed -i "s|^SUPABASE_JWT_SECRET=.*|SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET|" .env || echo "SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET" >> .env
+  set_env "SUPABASE_JWT_SECRET" "$SUPABASE_JWT_SECRET"
 fi
 _load_env
 
@@ -137,19 +170,7 @@ ask "DOMAIN" "Domain name (e.g. n8n.yourdomain.com, or press Enter to skip)" "" 
 _load_env
 echo -e "${GREEN}✅ Configuration saved${NC}"
 
-# ── 5. Generate keys if missing (BEFORE starting any service) ─
-if [ -z "$SUPABASE_JWT_SECRET" ]; then
-  SUPABASE_JWT_SECRET=$(openssl rand -base64 32)
-  grep -q "^SUPABASE_JWT_SECRET=" .env && sed -i "s|^SUPABASE_JWT_SECRET=.*|SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET|" .env || echo "SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET" >> .env
-fi
-if [ -z "$N8N_ENCRYPTION_KEY" ] || [[ "$N8N_ENCRYPTION_KEY" == "your_"* ]]; then
-  N8N_ENCRYPTION_KEY=$(openssl rand -hex 16)
-  grep -q "^N8N_ENCRYPTION_KEY=" .env && sed -i "s|^N8N_ENCRYPTION_KEY=.*|N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY|" .env || echo "N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY" >> .env
-fi
-if [ -z "$POSTGRES_PASSWORD" ] || [[ "$POSTGRES_PASSWORD" == "changeme" ]]; then
-  POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
-  grep -q "^POSTGRES_PASSWORD=" .env && sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" .env || echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
-fi
+# ── 5. Verify keys (already generated in step 3) ─────────────
 _load_env
 echo -e "  ${GREEN}✅ Crypto keys ready${NC}"
 
@@ -168,8 +189,9 @@ print(f"SUPABASE_ANON_KEY={jwt('anon')}")
 print(f"SUPABASE_SERVICE_KEY={jwt('service_role')}")
 PYEOF
 )
-  echo "$KEYS" >> .env
-  eval "$KEYS"
+  while IFS='=' read -r k v; do
+    [ -n "$k" ] && set_env "$k" "$v"
+  done <<< "$KEYS"
   echo -e "  ${GREEN}✅ JWT keys generated${NC}"
 fi
 _load_env
@@ -246,17 +268,11 @@ NGINX
   systemctl start nginx
   systemctl enable nginx
 
-  # Update n8n webhook URL to HTTPS (grep+sed: update if exists, append if missing)
-  grep -q "^N8N_WEBHOOK_URL=" .env \
-    && sed -i "s|^N8N_WEBHOOK_URL=.*|N8N_WEBHOOK_URL=https://${DOMAIN}|" .env \
-    || echo "N8N_WEBHOOK_URL=https://${DOMAIN}" >> .env
-  grep -q "^N8N_HOST=" .env \
-    && sed -i "s|^N8N_HOST=.*|N8N_HOST=${DOMAIN}|" .env \
-    || echo "N8N_HOST=${DOMAIN}" >> .env
-  grep -q "^N8N_PROTOCOL=" .env \
-    && sed -i "s|^N8N_PROTOCOL=.*|N8N_PROTOCOL=https|" .env \
-    || echo "N8N_PROTOCOL=https" >> .env
-  echo "N8N_SECURE_COOKIE=true" >> .env
+  # Update n8n webhook URL to HTTPS
+  set_env "N8N_WEBHOOK_URL" "https://${DOMAIN}"
+  set_env "N8N_HOST" "${DOMAIN}"
+  set_env "N8N_PROTOCOL" "https"
+  set_env "N8N_SECURE_COOKIE" "true"
   _load_env
 
   # Restart n8n with HTTPS config
@@ -303,8 +319,13 @@ if [ "$STATUS" != "200" ]; then
 fi
 
 # ── 10b. Create n8n credentials (after API is confirmed ready) ──
+if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ]; then
+  echo -e "\n${GREEN}🔑 Skipping credential creation (update mode)${NC}"
+else
 echo -e "\n${GREEN}🔑 Creating n8n credentials...${NC}"
+fi
 set +e
+if [ "$INSTALL_MODE" = "fresh" ] || [ "$FORCE_FLAG" = "--force" ]; then
 
 create_cred() {
   local raw_response
@@ -338,8 +359,12 @@ if [ -z "$POSTGRES_CRED_ID" ]; then
 else
   echo "  ✅ Supabase Postgres → ${POSTGRES_CRED_ID}"
 fi
+fi  # end INSTALL_MODE guard for credentials
 
 # ── 11. Prepare + import workflows ──────────────────────────
+if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ]; then
+  echo -e "\n${GREEN}📦 Skipping workflow import (update mode — use --force to reimport)${NC}"
+else
 echo -e "\n${GREEN}📦 Importing workflows...${NC}"
 mkdir -p workflows/deployed
 
@@ -450,6 +475,7 @@ print(raw)
     [ -n "$REAL_ANTHROPIC_ID" ] && echo "  ✅ Anthropic cred:  ${REAL_ANTHROPIC_ID} (if already added)"
   fi
 fi
+fi  # end INSTALL_MODE guard for workflows
 
 # ── 12. Activate agent ───────────────────────────────────────
 AGENT_ID=${WF_IDS['n8n-claw-agent']}
@@ -465,6 +491,9 @@ if [ -n "$AGENT_ID" ]; then
 fi
 
 # ── 12. Setup Wizard via CLI (no n8n workflow needed) ────────
+if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ]; then
+  echo -e "\n${GREEN}🧙 Skipping personalization (update mode — use --force to reconfigure)${NC}"
+else
 echo -e "\n${GREEN}🧙 Personalization setup${NC}"
 echo "────────────────────────────"
 echo "Let's configure your agent's personality."
@@ -634,6 +663,7 @@ if [ "${SOUL_COUNT:-0}" -gt 0 ]; then
 else
   echo -e "  ${RED}❌ Soul table empty — DB write failed. Check postgres connection.${NC}"
 fi
+fi  # end INSTALL_MODE guard for personalization
 
 # ── Done ─────────────────────────────────────────────────────
 PUBLIC_IP=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || echo "YOUR-VPS-IP")
@@ -642,6 +672,20 @@ N8N_FINAL_URL=${N8N_FINAL_URL:-http://$PUBLIC_IP:5678}
 STUDIO_URL="http://${PUBLIC_IP}:3001"
 
 echo ""
+if [ "$INSTALL_MODE" = "update" ]; then
+  echo -e "${GREEN}🎉 Update complete!${NC}"
+  echo "=============================="
+  echo ""
+  echo -e "  ${GREEN}n8n:${NC} ${N8N_FINAL_URL}"
+  echo -e "  ${GREEN}Mode:${NC} update (services restarted, DB schema applied)"
+  if [ "$FORCE_FLAG" = "--force" ]; then
+    echo "  Workflows reimported, personality reconfigured"
+  else
+    echo "  Workflows + personality unchanged (use --force to reimport)"
+  fi
+  echo ""
+  exit 0
+fi
 echo -e "${GREEN}🎉 Setup complete!${NC}"
 echo "=============================="
 echo ""
