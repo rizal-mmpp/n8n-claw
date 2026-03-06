@@ -122,7 +122,7 @@ Without an embedding key, the agent still works — it falls back to keyword-bas
 
 **Optional: OpenAI API Key for voice messages:**
 
-During setup, you'll be asked for an OpenAI API key. This enables voice message transcription via Whisper. Without it, the agent cannot process voice messages — but photos, documents, and locations work without it.
+If you chose OpenAI as your embedding provider, the same key is automatically used for voice transcription (Whisper) — no extra input needed. If you use a different embedding provider (or none), setup will ask separately for an OpenAI key. Without it, voice messages won't work — but photos, documents, and locations work without any extra keys.
 
 ### Step 3 — Activate remaining workflows
 

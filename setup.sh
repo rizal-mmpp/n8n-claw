@@ -207,7 +207,6 @@ ask "N8N_API_KEY"        "n8n API Key (Settings → API → Create key)" "" 1
 ask "TELEGRAM_BOT_TOKEN" "Telegram Bot Token (from @BotFather)"      "" 1
 ask "TELEGRAM_CHAT_ID"   "Your Telegram Chat ID (from @userinfobot)" "" 0
 ask "ANTHROPIC_API_KEY"  "Anthropic API Key (from console.anthropic.com)" "" 1
-ask "OPENAI_API_KEY"    "OpenAI API Key (for voice transcription, optional)" "" 1
 echo ""
 echo -e "  ${YELLOW}Optional: Domain for HTTPS (required for Telegram webhooks)${NC}"
 echo "  Leave empty to skip (you can set up HTTPS later)"
@@ -726,8 +725,28 @@ if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ] && [ -z "${E
       ON CONFLICT (tool_name) DO UPDATE SET config = EXCLUDED.config, enabled = true, updated_at = now();
     " > /dev/null 2>&1
     echo -e "  ${GREEN}✅ Embeddings configured (${EMBEDDING_PROVIDER}/${EMBEDDING_MODEL})${NC}"
+    # Reuse OpenAI embedding key for voice transcription credential
+    if [ "$EMBEDDING_PROVIDER" = "openai" ]; then
+      OPENAI_API_KEY="$EMBEDDING_API_KEY"
+      set_env OPENAI_API_KEY "$OPENAI_API_KEY"
+      echo -e "  ${GREEN}ℹ️  Same key will be used for voice transcription (Whisper)${NC}"
+    fi
   else
     echo -e "  ⏭️  Skipped — using keyword search"
+  fi
+  # Voice transcription: ask for OpenAI key if not already set
+  if [ -z "$OPENAI_API_KEY" ] || [[ "$OPENAI_API_KEY" == "your_"* ]]; then
+    echo ""
+    echo -e "  ${GREEN}🎤 Voice Transcription (optional)${NC}"
+    echo "  OpenAI API key enables voice message transcription via Whisper."
+    read -rp "  OpenAI API Key [skip]: " OPENAI_API_KEY_INPUT
+    if [ -n "$OPENAI_API_KEY_INPUT" ]; then
+      OPENAI_API_KEY="$OPENAI_API_KEY_INPUT"
+      set_env OPENAI_API_KEY "$OPENAI_API_KEY"
+      echo -e "  ${GREEN}✅ Voice transcription enabled${NC}"
+    else
+      echo -e "  ⏭️  Skipped — voice messages disabled"
+    fi
   fi
   # Write anthropic key to DB in update mode too
   if [ -n "$ANTHROPIC_API_KEY" ] && [[ "$ANTHROPIC_API_KEY" != "your_"* ]]; then
@@ -809,6 +828,7 @@ echo ""
 echo -e "${GREEN}🧠 RAG / Vector Memory (optional)${NC}"
 echo "  For semantic memory search, provide an embedding API key."
 echo "  Supported providers: openai (default), voyage, ollama"
+echo "  If you use OpenAI, the same key also enables voice transcription (Whisper)."
 if [ -n "$EMBEDDING_API_KEY" ]; then
   echo "  Current key: ${EMBEDDING_API_KEY:0:8}...  (Enter to keep, or enter new key)"
   read -rp "  Embedding API Key [keep]: " EMBEDDING_API_KEY_INPUT
@@ -828,8 +848,30 @@ if [ -n "$EMBEDDING_API_KEY_INPUT" ]; then
   set_env EMBEDDING_PROVIDER "$EMBEDDING_PROVIDER"
   set_env EMBEDDING_MODEL "$EMBEDDING_MODEL"
   echo -e "  ${GREEN}✅ Embeddings configured (${EMBEDDING_PROVIDER}/${EMBEDDING_MODEL})${NC}"
+  # Reuse OpenAI embedding key for voice transcription credential
+  if [ "$EMBEDDING_PROVIDER" = "openai" ]; then
+    OPENAI_API_KEY="$EMBEDDING_API_KEY"
+    set_env OPENAI_API_KEY "$OPENAI_API_KEY"
+    echo -e "  ${GREEN}ℹ️  Same key will be used for voice transcription (Whisper)${NC}"
+  fi
 else
   echo -e "  ⏭️  Skipped — using keyword search"
+fi
+
+# Voice transcription: ask for OpenAI key if not already set (non-openai embedding or no embedding)
+if [ -z "$OPENAI_API_KEY" ] || [[ "$OPENAI_API_KEY" == "your_"* ]]; then
+  echo ""
+  echo -e "${GREEN}🎤 Voice Transcription (optional)${NC}"
+  echo "  OpenAI API key enables voice message transcription via Whisper."
+  echo "  Leave empty to skip — voice messages won't be supported."
+  read -rp "  OpenAI API Key [skip]: " OPENAI_API_KEY_INPUT
+  if [ -n "$OPENAI_API_KEY_INPUT" ]; then
+    OPENAI_API_KEY="$OPENAI_API_KEY_INPUT"
+    set_env OPENAI_API_KEY "$OPENAI_API_KEY"
+    echo -e "  ${GREEN}✅ Voice transcription enabled${NC}"
+  else
+    echo -e "  ⏭️  Skipped — voice messages disabled"
+  fi
 fi
 
 # Write embedding + anthropic config to DB (tools_config table)
