@@ -202,6 +202,7 @@ echo "────────────────────────�
 ask "N8N_API_KEY"        "n8n API Key (Settings → API → Create key)" "" 1
 ask "TELEGRAM_BOT_TOKEN" "Telegram Bot Token (from @BotFather)"      "" 1
 ask "TELEGRAM_CHAT_ID"   "Your Telegram Chat ID (from @userinfobot)" "" 0
+ask "ANTHROPIC_API_KEY"  "Anthropic API Key (from console.anthropic.com)" "" 1
 echo ""
 echo -e "  ${YELLOW}Optional: Domain for HTTPS (required for Telegram webhooks)${NC}"
 echo "  Leave empty to skip (you can set up HTTPS later)"
