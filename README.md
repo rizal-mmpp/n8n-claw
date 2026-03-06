@@ -255,17 +255,15 @@ The agent understands more than just text — send voice messages, photos, docum
 | Media type | What happens | Requires |
 |---|---|---|
 | **Voice messages** | Transcribed via OpenAI Whisper, then processed as text | OpenAI API Key |
-| **Photos** | Sent directly to Claude Vision for analysis | — (built-in) |
-| **Documents (PDF)** | Sent directly to Claude for reading and analysis | — (built-in) |
+| **Photos** | Analyzed via OpenAI Vision (GPT-4o-mini), description passed to agent | OpenAI API Key |
+| **Documents (PDF)** | Text extracted via n8n's built-in PDF parser, passed to agent | — (built-in) |
 | **Location** | Converted to coordinates text, agent responds with context | — (built-in) |
 
-**Voice transcription** requires an OpenAI API key (configured during setup). Without it, voice messages won't work — but all other media types function without any extra API keys.
+**Voice and photo analysis** require an OpenAI API key (configured during setup). Without it, voice messages and photos won't work — but documents and locations function without any extra API keys.
 
-**Photos and documents** are passed directly to Claude as multimodal content — no intermediate processing needed. Send a photo and ask "what's in this image?", or send a PDF and ask for a summary.
-
-> "What do you see in this photo?"
 > *[send a voice message]* — automatically transcribed and answered
-> *[send a PDF]* — "Please summarize this document"
+> *[send a photo]* — "What do you see?" — analyzed by GPT-4o-mini Vision
+> *[send a PDF]* — text extracted and analyzed by the agent
 > *[share location]* — agent responds with location context
 
 ---
