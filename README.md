@@ -13,6 +13,7 @@ Talk to your agent in natural language — it manages tasks, remembers context a
 - **Morning briefing** — daily summary of your tasks at a time you choose
 - **MCP Server Builder** — builds new API integrations on demand (just ask: *"build me an MCP server for the GitHub API"*)
 - **Smart reminders** — timed Telegram reminders ("remind me in 2 hours to...")
+- **Web search** — searches the web via built-in SearXNG instance (no API key needed)
 - **Extensible** — add new tools and capabilities through natural language
 
 ## Architecture
@@ -27,6 +28,7 @@ n8n-claw Agent (Claude Sonnet)
   ├── MCP Builder          → creates new MCP Servers automatically
   ├── Reminder Factory    — timed Telegram reminders
   ├── HTTP Tool           — simple web requests
+  ├── Web Search          — search the web (SearXNG)
   └── Self Modify         — inspect/list n8n workflows
 
 Background Workflows (automated):

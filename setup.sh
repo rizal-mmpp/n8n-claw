@@ -153,6 +153,12 @@ if [ -z "$SUPABASE_JWT_SECRET" ]; then
   SUPABASE_JWT_SECRET=$(openssl rand -base64 32)
   set_env "SUPABASE_JWT_SECRET" "$SUPABASE_JWT_SECRET"
 fi
+
+# SearXNG secret key (only patch if placeholder still present)
+if grep -q '{{SEARXNG_SECRET_KEY}}' searxng/settings.yml 2>/dev/null; then
+  SEARXNG_SECRET=$(openssl rand -hex 32)
+  sed -i "s|{{SEARXNG_SECRET_KEY}}|${SEARXNG_SECRET}|g" searxng/settings.yml
+fi
 _load_env
 
 # ── 4. Start n8n early so user can get API key ──────────────

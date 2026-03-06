@@ -296,6 +296,17 @@
         ]
       ]
     },
+    "Web Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Self Modify": {
       "ai_tool": [
         [
@@ -773,7 +784,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build system prompt from loaded context\nconst soul = $('Load Soul').all().map(i => i.json);\nconst agents = $('Load Agents Config').all().map(i => i.json);\nconst user = $('Load User Profile').first()?.json || {};\nconst history = $('Load Conversation History').all().map(i => i.json);\nconst userMessage = $('Normalize Message').first().json.userMessage || '';\nconst chatId = $('Telegram Trigger').first().json.message.chat.id;\nconst userId = $('Telegram Trigger').first().json.message.from.id;\n\n// Build soul text\nconst soulText = soul.map(s => `## ${s.key}\\n${s.content}`).join('\\n\\n');\nconst agentText = agents.map(a => `## ${a.key}\\n${a.content}`).join('\\n\\n');\nconst userText = user.display_name \n  ? `Name: ${user.display_name} (${user.name})\\nTimezone: ${user.timezone}\\nKontext: ${user.context}\\nPrefs: ${JSON.stringify(user.preferences)}`\n  : 'Unbekannter User';\n\n// Build conversation history\nconst historyText = history.reverse().map(h => `${h.role}: ${h.content}`).join('\\n');\n\nconst toolHint = `\\n\\n# WICHTIGE TOOLS\\n- WorkflowBuilder: Nutze dieses Tool um n8n Workflows zu erstellen. Wenn der User eine Integration, API-Anbindung oder Automatisierung braucht, rufe WorkflowBuilder auf statt nachzufragen. Gib alle Details (URLs, Credentials, Anforderungen) direkt weiter.\\n- Reminder: Erstellt zeitgesteuerte Erinnerungen.\\n- Memory Search/Save: Langzeitgedächtnis.\\n- HTTP Tool: Einfache GET requests (keine Auth).\\n- Self Modify: n8n Workflows auflisten/anzeigen.`;\n\n// Current date/time in user's timezone\nconst now = $now.setZone(user.timezone || 'UTC').toFormat('cccc, dd LLLL yyyy, HH:mm');\n\nconst systemPrompt = `# CURRENT TIME\\n${now}\\n\\n# SOUL\\n${soulText}\\n\\n# AGENT CONFIG\\n${agentText}\\n\\n# USER PROFILE\\n${userText}\\n\\n# RECENT CONVERSATION\\n${historyText}`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userMessage,\n    chatId: String(chatId),\n    userId: String(userId),\n    sessionId: `telegram:${chatId}`\n  }\n}];"
+        "jsCode": "// Build system prompt from loaded context\nconst soul = $('Load Soul').all().map(i => i.json);\nconst agents = $('Load Agents Config').all().map(i => i.json);\nconst user = $('Load User Profile').first()?.json || {};\nconst history = $('Load Conversation History').all().map(i => i.json);\nconst userMessage = $('Normalize Message').first().json.userMessage || '';\nconst chatId = $('Telegram Trigger').first().json.message.chat.id;\nconst userId = $('Telegram Trigger').first().json.message.from.id;\n\n// Build soul text\nconst soulText = soul.map(s => `## ${s.key}\\n${s.content}`).join('\\n\\n');\nconst agentText = agents.map(a => `## ${a.key}\\n${a.content}`).join('\\n\\n');\nconst userText = user.display_name \n  ? `Name: ${user.display_name} (${user.name})\\nTimezone: ${user.timezone}\\nKontext: ${user.context}\\nPrefs: ${JSON.stringify(user.preferences)}`\n  : 'Unbekannter User';\n\n// Build conversation history\nconst historyText = history.reverse().map(h => `${h.role}: ${h.content}`).join('\\n');\n\nconst toolHint = `\\n\\n# WICHTIGE TOOLS\\n- WorkflowBuilder: Nutze dieses Tool um n8n Workflows zu erstellen. Wenn der User eine Integration, API-Anbindung oder Automatisierung braucht, rufe WorkflowBuilder auf statt nachzufragen. Gib alle Details (URLs, Credentials, Anforderungen) direkt weiter.\\n- Reminder: Erstellt zeitgesteuerte Erinnerungen.\\n- Memory Search/Save: Langzeitgedächtnis.\\n- HTTP Tool: Einfache GET requests (keine Auth).\\n- Web Search: Durchsucht das Internet. Nutze dieses Tool wenn der User aktuelle Infos braucht, Fragen hat die du nicht sicher beantworten kannst, oder nach etwas Konkretem sucht.\\n- Self Modify: n8n Workflows auflisten/anzeigen.`;\n\n// Current date/time in user's timezone\nconst now = $now.setZone(user.timezone || 'UTC').toFormat('cccc, dd LLLL yyyy, HH:mm');\n\nconst systemPrompt = `# CURRENT TIME\\n${now}\\n\\n# SOUL\\n${soulText}\\n\\n# AGENT CONFIG\\n${agentText}\\n\\n# USER PROFILE\\n${userText}\\n\\n# RECENT CONVERSATION\\n${historyText}`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userMessage,\n    chatId: String(chatId),\n    userId: String(userId),\n    sessionId: `telegram:${chatId}`\n  }\n}];"
       },
       "id": "build-prompt",
       "name": "Build System Prompt",
@@ -958,6 +969,20 @@
     },
     {
       "parameters": {
+        "description": "Search the web. Input: search query as string or JSON with q field. Returns top 5 results with title, URL, and snippet.",
+        "jsCode": "let input;\ntry { input = JSON.parse(query); } catch(e) { input = { q: query }; }\nconst q = input.q || input.query || query;\nconst result = await helpers.httpRequest({\n  method: 'GET',\n  url: `http://searxng:8080/search?q=${encodeURIComponent(q)}&format=json&language=de`,\n  headers: { 'Accept': 'application/json' }\n});\nconst hits = (result.results || []).slice(0, 5).map(r =>\n  `${r.title}\\n${r.url}\\n${r.content || ''}`\n).join('\\n\\n');\nreturn hits || 'Keine Ergebnisse gefunden.';"
+      },
+      "id": "tool-web-search",
+      "name": "Web Search",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.2,
+      "position": [
+        2832,
+        208
+      ]
+    },
+    {
+      "parameters": {
         "description": "List or manage n8n workflows. Input: JSON with action (list/get/create) and optional workflowId.",
         "jsCode": "let input;\ntry { input = JSON.parse(query); } catch(e) { input = {action:'list'}; }\nconst apiKey = '{{N8N_API_KEY}}';\nconst hdrs = {'X-N8N-API-KEY': apiKey, 'Content-Type': 'application/json'};\nlet result;\nif (input.action === 'list') {\n  result = await helpers.httpRequest({method:'GET', url:'{{N8N_INTERNAL_URL}}/api/v1/workflows', headers: hdrs});\n} else if (input.action === 'get' && input.workflowId) {\n  result = await helpers.httpRequest({method:'GET', url:'{{N8N_INTERNAL_URL}}/api/v1/workflows/'+input.workflowId, headers: hdrs});\n} else {\n  return JSON.stringify({error: 'Use action: list or get'});\n}\nreturn JSON.stringify(result);"
       },
@@ -966,7 +991,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolCode",
       "typeVersion": 1.2,
       "position": [
-        2832,
+        2960,
         208
       ]
     },

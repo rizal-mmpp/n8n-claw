@@ -136,6 +136,18 @@ services:
       - n8n-claw-net
 
 
+  # ── SearXNG (Web Search) ────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    container_name: n8n-claw-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - n8n-claw-net
+
 volumes:
   n8n_data:
   db_data:
