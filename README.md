@@ -173,7 +173,7 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 | Table | Contents |
 |---|---|
 | `soul` | Agent personality (name, persona, vibe, language, boundaries) |
-| `agents` | Tool instructions, MCP config, user context |
+| `agents` | Tool instructions, MCP config, memory behavior, user context |
 | `user_profiles` | User name, timezone, context |
 | `mcp_registry` | Available MCP servers |
 | `conversations` | Chat history |
