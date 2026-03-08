@@ -43,7 +43,7 @@ Background Workflows (automated):
 
 ### What you need
 
-- A Linux VPS (Ubuntu 22.04/24.04 recommended, 2GB RAM minimum)
+- A Linux VPS (Ubuntu 22.04/24.04 recommended, also tested with Debian 13, 2GB RAM and 12GB Disk minimum)
 - A **Telegram Bot** — create one via [@BotFather](https://t.me/BotFather)
 - Your **Telegram Chat ID** — get it from [@userinfobot](https://t.me/userinfobot)
 - An **Anthropic API Key** — from [console.anthropic.com](https://console.anthropic.com)
@@ -65,7 +65,7 @@ The script will:
    - Telegram Bot Token
    - Telegram Chat ID
    - Anthropic API Key
-   - Domain name *(optional — enables HTTPS via Let's Encrypt + nginx)*
+   - Domain name *(optional — enables HTTPS via Let's Encrypt + nginx, or skip nginx if you already have a reverse proxy)*
 5. **Configure your agent's personality**:
    - Agent name
    - Your name
@@ -322,13 +322,25 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 
 ## HTTPS Setup
 
-If you provided a domain during setup, HTTPS is configured automatically via Let's Encrypt. If not, you can add it later:
+If you provided a domain during setup, HTTPS is configured automatically via Let's Encrypt + nginx. This is the default and works for most people. If not, you can add it later:
 
 ```bash
 DOMAIN=n8n.yourdomain.com ./setup.sh
 ```
 
 Point your domain's DNS A record to the VPS IP before running this.
+
+### Already have a reverse proxy?
+
+If you're running your own reverse proxy (Caddy, Traefik, nginx on another host, etc.), setup will ask whether to skip the built-in nginx + Let's Encrypt installation. Answer **yes** to skip — n8n will still be configured with the correct HTTPS webhook URLs, but TLS termination is left to your existing proxy.
+
+You can also set this in `.env` before running setup:
+
+```bash
+SKIP_REVERSE_PROXY=true
+```
+
+Your reverse proxy should forward traffic to `localhost:5678` (n8n) with WebSocket support enabled.
 
 > ⚠️ **Security note:** Without a domain, n8n runs over plain HTTP with no TLS and no rate limiting. This is fine for **local installs** (home server, LAN, testing). For a **public VPS**, always use a domain with HTTPS — otherwise credentials are transmitted unencrypted and the instance is exposed to the internet.
 

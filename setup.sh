@@ -218,6 +218,20 @@ echo -e "  ${YELLOW}Optional: Domain for HTTPS (required for Telegram webhooks)$
 echo "  Leave empty to skip (you can set up HTTPS later)"
 ask "DOMAIN" "Domain name (e.g. n8n.yourdomain.com, or press Enter to skip)" "" 0
 _load_env
+
+# Ask about external reverse proxy (only if domain is set)
+if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != "your_"* ]] && [ -z "$SKIP_REVERSE_PROXY" ]; then
+  echo ""
+  echo -e "  ${YELLOW}Do you already have a reverse proxy (e.g. Caddy, Traefik, nginx)${NC}"
+  echo -e "  ${YELLOW}handling HTTPS for ${DOMAIN}?${NC}"
+  read -rp "  Skip nginx + Let's Encrypt installation? (y/N): " skip_rp
+  if [[ "$skip_rp" =~ ^[Yy] ]]; then
+    set_env "SKIP_REVERSE_PROXY" "true"
+  else
+    set_env "SKIP_REVERSE_PROXY" "false"
+  fi
+  _load_env
+fi
 echo -e "${GREEN}✅ Configuration saved${NC}"
 
 # ── 5. Verify keys (already generated in step 3) ─────────────
@@ -282,7 +296,7 @@ fi
 echo -e "  ${GREEN}✅ All services running${NC}"
 
 # ── 8. Setup HTTPS (if domain provided) ─────────────────────
-if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != "your_"* ]]; then
+if [ -n "$DOMAIN" ] && [[ "$DOMAIN" != "your_"* ]] && [ "$SKIP_REVERSE_PROXY" != "true" ]; then
   echo -e "\n${GREEN}🔒 Setting up HTTPS for ${DOMAIN}...${NC}"
 
   # Install nginx + certbot
@@ -337,6 +351,26 @@ NGINX
   sleep 5
 
   echo -e "  ${GREEN}✅ HTTPS ready at https://${DOMAIN}${NC}"
+  N8N_ACCESS_URL="https://${DOMAIN}"
+elif [ -n "$DOMAIN" ] && [[ "$DOMAIN" != "your_"* ]] && [ "$SKIP_REVERSE_PROXY" = "true" ]; then
+  echo -e "\n${GREEN}🔒 Using external reverse proxy for ${DOMAIN}${NC}"
+  echo "  Skipping nginx + Let's Encrypt (handled by your reverse proxy)"
+
+  # Configure n8n for HTTPS (proxy terminates TLS externally)
+  set_env "N8N_WEBHOOK_URL" "https://${DOMAIN}"
+  set_env "N8N_HOST" "${DOMAIN}"
+  set_env "N8N_PROTOCOL" "https"
+  set_env "N8N_SECURE_COOKIE" "true"
+  _load_env
+
+  # Restart n8n with HTTPS config
+  N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+  SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET N8N_WEBHOOK_URL="https://${DOMAIN}" \
+  N8N_HOST=$DOMAIN N8N_PROTOCOL=https N8N_SECURE_COOKIE=true \
+    docker compose up -d n8n > /dev/null 2>&1
+  sleep 5
+
+  echo -e "  ${GREEN}✅ n8n configured for https://${DOMAIN} (external proxy)${NC}"
   N8N_ACCESS_URL="https://${DOMAIN}"
 else
   echo -e "\n${YELLOW}⚠️  No domain configured — running on HTTP${NC}"
@@ -1218,6 +1252,6 @@ echo "     (not set by default due to n8n credential linking)"
 echo ""
 echo "    5. Message your Telegram bot!"
 echo ""
-if [ -z "$DOMAIN" ]; then
+if [ -z "$DOMAIN" ] || [[ "$DOMAIN" == "your_"* ]]; then
 echo -e "  ${YELLOW}HTTPS: Point a domain here → re-run: DOMAIN=n8n.yourdomain.com ./setup.sh${NC}"
 fi
