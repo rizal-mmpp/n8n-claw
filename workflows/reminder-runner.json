@@ -30,7 +30,25 @@
       "main": [
         [
           {
+            "node": "Switch Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Type": {
+      "main": [
+        [
+          {
             "node": "Send Messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Agent",
             "type": "main",
             "index": 0
           }
@@ -38,6 +56,17 @@
       ]
     },
     "Send Messages": {
+      "main": [
+        [
+          {
+            "node": "Mark Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Agent": {
       "main": [
         [
           {
@@ -116,6 +145,69 @@
     },
     {
       "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reminder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "task"
+            }
+          ]
+        },
+        "options": {
+          "allMatchingOutputs": false
+        }
+      },
+      "name": "Switch Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "switch-01"
+    },
+    {
+      "parameters": {
         "chatId": "={{ $json.chat_id }}",
         "text": "=\u23f0 {{ $json.message }}",
         "additionalFields": {
@@ -126,8 +218,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        672,
-        0
+        896,
+        -120
       ],
       "id": "send-01",
       "credentials": {
@@ -139,13 +231,38 @@
     },
     {
       "parameters": {
+        "workflowId": "REPLACE_AGENT_WORKFLOW_ID",
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "inputData": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message": "={{ $json.message }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "user_id": "={{ $json.user_id }}",
+            "source": "scheduled_task"
+          }
+        }
+      },
+      "name": "Execute Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        120
+      ],
+      "id": "exec-agent-01"
+    },
+    {
+      "parameters": {
         "jsCode": "// Mark reminder as sent\nconst id = $('Has Reminders').item.json.id;\nawait helpers.httpRequest({\n  method: 'PATCH',\n  url: `{{SUPABASE_URL}}/rest/v1/reminders?id=eq.${id}`,\n  headers: {\n    'apikey': '{{SUPABASE_SERVICE_KEY}}',\n    'Content-Type': 'application/json'\n  },\n  body: { reminded_at: new Date().toISOString() },\n  json: true\n});\n\nreturn [{ json: { id, marked: true } }];"
       },
       "name": "Mark Done",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        896,
+        1120,
         0
       ],
       "id": "mark-01"

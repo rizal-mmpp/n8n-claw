@@ -719,6 +719,31 @@ print(raw)
     [ -n "$REAL_ANTHROPIC_ID" ] && echo "  ✅ Anthropic cred:  ${REAL_ANTHROPIC_ID} (if already added)"
   fi
 fi
+# ── 11b. Patch Agent workflow ID in Reminder Runner ──────────
+REMINDER_RUNNER_WF_ID=${WF_IDS['reminder-runner']}
+AGENT_WF_ID_FOR_RUNNER=${WF_IDS['n8n-claw-agent']}
+if [ -n "$REMINDER_RUNNER_WF_ID" ] && [ -n "$AGENT_WF_ID_FOR_RUNNER" ]; then
+  RUNNER_JSON=$(curl -s "${N8N_BASE}/api/v1/workflows/${REMINDER_RUNNER_WF_ID}" \
+    -H "X-N8N-API-KEY: ${N8N_API_KEY}")
+
+  PATCHED_RUNNER=$(echo "$RUNNER_JSON" | python3 -c "
+import sys, json
+raw = sys.stdin.read()
+raw = raw.replace('REPLACE_AGENT_WORKFLOW_ID', '${AGENT_WF_ID_FOR_RUNNER}')
+wf = json.loads(raw)
+nodes = wf.get('nodes') or wf.get('activeVersion',{}).get('nodes',[])
+conns = wf.get('connections') or wf.get('activeVersion',{}).get('connections',{})
+print(json.dumps({'name': wf['name'], 'nodes': nodes, 'connections': conns, 'settings': wf.get('settings',{})}))
+" 2>/dev/null)
+
+  if [ -n "$PATCHED_RUNNER" ]; then
+    echo "$PATCHED_RUNNER" | curl -s -X PUT "${N8N_BASE}/api/v1/workflows/${REMINDER_RUNNER_WF_ID}" \
+      -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+      -H "Content-Type: application/json" -d @- > /dev/null
+    echo "  ✅ Reminder Runner → Agent: ${AGENT_WF_ID_FOR_RUNNER}"
+  fi
+fi
+
 fi  # end INSTALL_MODE guard for workflows
 
 # ── 12. Activate agent ───────────────────────────────────────

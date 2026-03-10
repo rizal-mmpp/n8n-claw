@@ -158,6 +158,39 @@
       "main": [
         [
           {
+            "node": "Merge Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Task Input": {
+      "main": [
+        [
+          {
+            "node": "Merge Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scheduled Task Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Task Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Input": {
+      "main": [
+        [
+          {
             "node": "Load Soul",
             "type": "main",
             "index": 0
@@ -682,7 +715,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msg = $('Telegram Trigger').first().json.message;\n\n// Determine which media path we came from\nlet userMessage = '';\n\n// Check voice transcription result\ntry {\n  const transcript = $('Transcribe Voice').first()?.json?.text;\n  if (transcript) {\n    userMessage = '[Voice message] ' + transcript;\n    return [{ json: { userMessage } }];\n  }\n} catch(e) {}\n\n// Check photo (analyzed by OpenAI Vision)\ntry {\n  const analysis = $('Analyze Photo').first();\n  if (analysis) {\n    let description = '';\n    const j = analysis.json;\n    if (Array.isArray(j)) {\n      description = j[0]?.content?.[0]?.text || JSON.stringify(j);\n    } else {\n      description = j.text || j.content || JSON.stringify(j);\n    }\n    const caption = msg.caption || '';\n    userMessage = '[Photo analysis]\\n' + description + (caption ? '\\n\\nUser caption: ' + caption : '');\n    return [{ json: { userMessage } }];\n  }\n} catch(e) {}\n\n// Check document (PDF text extracted by Extract PDF Text node)\ntry {\n  const extracted = $('Extract PDF Text').first();\n  if (extracted) {\n    const filename = msg.document?.file_name || 'unknown';\n    const pdfText = extracted.json.text || '';\n    userMessage = '[Document: ' + filename + ']\\n\\n' + pdfText + '\\n\\n' + (msg.caption || 'Please analyze this document.');\n    return [{ json: { userMessage } }];\n  }\n} catch(e) {}\n\n// Check location\ntry {\n  const locMsg = $('Format Location').first()?.json?.userMessage;\n  if (locMsg) {\n    return [{ json: { userMessage: locMsg } }];\n  }\n} catch(e) {}\n\n// Check unsupported\ntry {\n  const unsup = $('Unsupported Media').first()?.json?.userMessage;\n  if (unsup) {\n    return [{ json: { userMessage: unsup } }];\n  }\n} catch(e) {}\n\n// Default: text message\nuserMessage = msg.text || '';\nreturn [{ json: { userMessage } }];"
+        "jsCode": "const msg = $('Telegram Trigger').first().json.message;\nconst chatId = String(msg.chat.id);\nconst userId = String(msg.from.id);\nconst source = 'telegram';\n\nfunction out(userMessage) {\n  return [{ json: { userMessage, chatId, userId, source } }];\n}\n\n// Determine which media path we came from\nlet userMessage = '';\n\n// Check voice transcription result\ntry {\n  const transcript = $('Transcribe Voice').first()?.json?.text;\n  if (transcript) {\n    return out('[Voice message] ' + transcript);\n  }\n} catch(e) {}\n\n// Check photo (analyzed by OpenAI Vision)\ntry {\n  const analysis = $('Analyze Photo').first();\n  if (analysis) {\n    let description = '';\n    const j = analysis.json;\n    if (Array.isArray(j)) {\n      description = j[0]?.content?.[0]?.text || JSON.stringify(j);\n    } else {\n      description = j.text || j.content || JSON.stringify(j);\n    }\n    const caption = msg.caption || '';\n    userMessage = '[Photo analysis]\\n' + description + (caption ? '\\n\\nUser caption: ' + caption : '');\n    return out(userMessage);\n  }\n} catch(e) {}\n\n// Check document (PDF text extracted by Extract PDF Text node)\ntry {\n  const extracted = $('Extract PDF Text').first();\n  if (extracted) {\n    const filename = msg.document?.file_name || 'unknown';\n    const pdfText = extracted.json.text || '';\n    userMessage = '[Document: ' + filename + ']\\n\\n' + pdfText + '\\n\\n' + (msg.caption || 'Please analyze this document.');\n    return out(userMessage);\n  }\n} catch(e) {}\n\n// Check location\ntry {\n  const locMsg = $('Format Location').first()?.json?.userMessage;\n  if (locMsg) {\n    return out(locMsg);\n  }\n} catch(e) {}\n\n// Check unsupported\ntry {\n  const unsup = $('Unsupported Media').first()?.json?.userMessage;\n  if (unsup) {\n    return out(unsup);\n  }\n} catch(e) {}\n\n// Default: text message\nuserMessage = msg.text || '';\nreturn out(userMessage);"
       },
       "id": "normalize-message",
       "name": "Normalize Message",
@@ -690,6 +723,45 @@
       "typeVersion": 2,
       "position": [
         920,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "scheduled-task-trigger",
+      "name": "Scheduled Task Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst message = raw.message || '';\nconst chatId = String(raw.chat_id || '');\n// Strip 'telegram:' prefix if present to get raw numeric ID\nconst userId = String(raw.user_id || '').replace('telegram:', '');\nconst source = 'scheduled_task';\n\nreturn [{ json: { userMessage: message, chatId, userId, source } }];"
+      },
+      "id": "format-task-input",
+      "name": "Format Task Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{ json: data }];"
+      },
+      "id": "merge-input",
+      "name": "Merge Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
         -16
       ]
     },
@@ -746,7 +818,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT name, display_name, timezone, preferences, context, setup_done FROM user_profiles WHERE user_id = 'telegram:{{ $('Telegram Trigger').item.json.message.from.id }}' LIMIT 1",
+        "query": "SELECT name, display_name, timezone, preferences, context, setup_done FROM user_profiles WHERE user_id = 'telegram:{{ $('Merge Input').first().json.userId }}' LIMIT 1",
         "options": {
           "queryBatching": "independently"
         }
@@ -771,7 +843,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, content FROM conversations WHERE session_id = 'telegram:{{ $('Telegram Trigger').item.json.message.chat.id }}' ORDER BY created_at DESC LIMIT 20",
+        "query": "SELECT role, content FROM conversations WHERE session_id = 'telegram:{{ $('Merge Input').first().json.chatId }}' ORDER BY created_at DESC LIMIT 20",
         "options": {
           "queryBatching": "independently"
         }
@@ -795,7 +867,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build system prompt from loaded context\nconst soul = $('Load Soul').all().map(i => i.json);\n// Deduplicate: sequential node chaining causes cartesian product (6 soul × 6 agents = 36 items)\nconst agentsRaw = $('Load Agents Config').all().map(i => i.json);\nconst agents = [...new Map(agentsRaw.map(a => [a.key, a])).values()];\nconst user = $('Load User Profile').first()?.json || {};\n// Deduplicate conversation history (36x duplicated due to upstream cartesian product)\nconst historyRaw = $('Load Conversation History').all().map(i => i.json);\nconst seenHist = new Set();\nconst history = historyRaw.filter(h => { const k = h.role + ':' + h.content; if (seenHist.has(k)) return false; seenHist.add(k); return true; });\nconst userMessage = $('Normalize Message').first().json.userMessage || '';\nconst chatId = $('Telegram Trigger').first().json.message.chat.id;\nconst userId = $('Telegram Trigger').first().json.message.from.id;\n\n// Build soul text\nconst soulText = soul.map(s => `## ${s.key}\\n${s.content}`).join('\\n\\n');\nconst agentText = agents.map(a => `## ${a.key}\\n${a.content}`).join('\\n\\n');\nconst userText = user.display_name \n  ? `Name: ${user.display_name} (${user.name})\\nTimezone: ${user.timezone}\\nKontext: ${user.context}\\nPrefs: ${JSON.stringify(user.preferences)}\\nSetup done: ${user.setup_done !== false ? 'true' : 'false'}`\n  : 'Unbekannter User';\n\n// Build conversation history\nconst historyText = history.reverse().map(h => `${h.role}: ${h.content}`).join('\\n');\n\nconst toolHint = `\\n\\n# WICHTIGE TOOLS\\n- WorkflowBuilder: Nutze dieses Tool um n8n Workflows zu erstellen. Wenn der User eine Integration, API-Anbindung oder Automatisierung braucht, rufe WorkflowBuilder auf statt nachzufragen. Gib alle Details (URLs, Credentials, Anforderungen) direkt weiter.\\n- Reminder: Erstellt zeitgesteuerte Erinnerungen.\\n- Memory Search/Save: Langzeitgedächtnis.\\n- HTTP Tool: Einfache GET requests (keine Auth).\\n- Web Search: Durchsucht das Internet. Nutze dieses Tool wenn der User aktuelle Infos braucht, Fragen hat die du nicht sicher beantworten kannst, oder nach etwas Konkretem sucht.\\n- Self Modify: n8n Workflows auflisten/anzeigen.`;\n\n// Current date/time in user's timezone\nconst now = $now.setZone(user.timezone || 'UTC').toFormat('cccc, dd LLLL yyyy, HH:mm');\n\nconst systemPrompt = `# CURRENT TIME\\n${now}\\n\\n# SOUL\\n${soulText}\\n\\n# AGENT CONFIG\\n${agentText}\\n\\n# USER PROFILE\\n${userText}\\n\\n# RECENT CONVERSATION\\n${historyText}`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userMessage,\n    chatId: String(chatId),\n    userId: String(userId),\n    sessionId: `telegram:${chatId}`\n  }\n}];"
+        "jsCode": "// Build system prompt from loaded context\nconst soul = $('Load Soul').all().map(i => i.json);\n// Deduplicate: sequential node chaining causes cartesian product (6 soul × 6 agents = 36 items)\nconst agentsRaw = $('Load Agents Config').all().map(i => i.json);\nconst agents = [...new Map(agentsRaw.map(a => [a.key, a])).values()];\nconst user = $('Load User Profile').first()?.json || {};\n// Deduplicate conversation history (36x duplicated due to upstream cartesian product)\nconst historyRaw = $('Load Conversation History').all().map(i => i.json);\nconst seenHist = new Set();\nconst history = historyRaw.filter(h => { const k = h.role + ':' + h.content; if (seenHist.has(k)) return false; seenHist.add(k); return true; });\nconst mergeData = $('Merge Input').first().json;\nconst userMessage = mergeData.userMessage || '';\nconst chatId = mergeData.chatId;\nconst userId = mergeData.userId;\nconst inputSource = mergeData.source || 'telegram';\n\n// Build soul text\nconst soulText = soul.map(s => `## ${s.key}\\n${s.content}`).join('\\n\\n');\nconst agentText = agents.map(a => `## ${a.key}\\n${a.content}`).join('\\n\\n');\nconst userText = user.display_name \n  ? `Name: ${user.display_name} (${user.name})\\nTimezone: ${user.timezone}\\nKontext: ${user.context}\\nPrefs: ${JSON.stringify(user.preferences)}\\nSetup done: ${user.setup_done !== false ? 'true' : 'false'}`\n  : 'Unbekannter User';\n\n// Build conversation history\nconst historyText = history.reverse().map(h => `${h.role}: ${h.content}`).join('\\n');\n\nconst toolHint = `\\n\\n# WICHTIGE TOOLS\\n- WorkflowBuilder: Nutze dieses Tool um n8n Workflows zu erstellen. Wenn der User eine Integration, API-Anbindung oder Automatisierung braucht, rufe WorkflowBuilder auf statt nachzufragen. Gib alle Details (URLs, Credentials, Anforderungen) direkt weiter.\\n- Reminder: Erstellt zeitgesteuerte Erinnerungen.\\n- Memory Search/Save: Langzeitgedächtnis.\\n- HTTP Tool: Einfache GET requests (keine Auth).\\n- Web Search: Durchsucht das Internet. Nutze dieses Tool wenn der User aktuelle Infos braucht, Fragen hat die du nicht sicher beantworten kannst, oder nach etwas Konkretem sucht.\\n- Self Modify: n8n Workflows auflisten/anzeigen.`;\n\n// Current date/time in user's timezone\nconst now = $now.setZone(user.timezone || 'UTC').toFormat('cccc, dd LLLL yyyy, HH:mm');\n\nconst scheduledHint = inputSource === 'scheduled_task' ? '\\n\\n# SCHEDULED TASK\\nThis message is a scheduled task that the user set up earlier. Execute the instructions thoroughly and send the result. Start your response with a brief ⏰ note that this is a scheduled task result.' : '';\n\nconst systemPrompt = `# CURRENT TIME\\n${now}\\n\\n# SOUL\\n${soulText}\\n\\n# AGENT CONFIG\\n${agentText}\\n\\n# USER PROFILE\\n${userText}${scheduledHint}\\n\\n# RECENT CONVERSATION\\n${historyText}`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userMessage,\n    chatId: String(chatId),\n    userId: String(userId),\n    sessionId: `telegram:${chatId}`\n  }\n}];"
       },
       "id": "build-prompt",
       "name": "Build System Prompt",
@@ -1008,7 +1080,7 @@
     },
     {
       "parameters": {
-        "description": "Set a timed reminder that sends a Telegram message at a specific time. Use when user says 'remind me at...', 'remind me in X minutes/hours'. Input: time as ISO 8601 (e.g. 2026-03-01T10:00:00+01:00) and message text.",
+        "description": "Set a timed reminder or scheduled task. Two modes:\\n- Reminder (type='reminder'): sends a Telegram message at the given time. Use for 'remind me at/in...'.\\n- Task (type='task'): the agent executes the instructions at the given time and sends the result. Use for 'do X at Y o'clock', 'fetch/search/summarize X at Y'.\\nInput: time (ISO 8601), message (text describing reminder or task instructions), type ('reminder' or 'task', default 'reminder').",
         "workflowId": {
           "__rl": true,
           "value": "REPLACE_REMINDER_FACTORY_ID",

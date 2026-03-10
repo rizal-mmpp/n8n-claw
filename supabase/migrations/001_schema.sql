@@ -528,6 +528,7 @@ CREATE TABLE public.reminders (
     message text NOT NULL,
     remind_at timestamp with time zone NOT NULL,
     reminded_at timestamp with time zone,
+    type text NOT NULL DEFAULT 'reminder',
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -1056,6 +1057,17 @@ GRANT ALL ON TABLE public.reminders TO service_role;
 GRANT ALL ON SEQUENCE public.reminders_id_seq TO anon;
 GRANT ALL ON SEQUENCE public.reminders_id_seq TO authenticated;
 GRANT ALL ON SEQUENCE public.reminders_id_seq TO service_role;
+
+-- Migration: add type column to reminders (idempotent for updates)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reminders' AND column_name = 'type'
+  ) THEN
+    ALTER TABLE public.reminders ADD COLUMN type text NOT NULL DEFAULT 'reminder';
+  END IF;
+END $$;
 
 
 --
