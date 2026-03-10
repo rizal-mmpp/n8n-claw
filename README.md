@@ -15,6 +15,7 @@ Talk to your agent in natural language — it manages tasks, remembers context a
 - **Smart reminders** — timed Telegram reminders ("remind me in 2 hours to...")
 - **Scheduled actions** — the agent executes instructions at a set time ("search HN for AI news at 9am")
 - **Web search** — searches the web via built-in SearXNG instance (no API key needed)
+- **Project memory** — persistent markdown documents for tracking ongoing work across conversations
 - **Extensible** — add new skills and capabilities through natural language or from the skill catalog
 
 ## Architecture
@@ -24,6 +25,7 @@ Telegram
   ↓
 n8n-claw Agent (Claude Sonnet)
   ├── Task Manager        — create, track, complete tasks
+  ├── Project Manager     — persistent project notes (markdown)
   ├── Memory Save/Search  — long-term memory with vector search
   ├── MCP Client          → calls tools on MCP skill servers
   ├── Library Manager     → install/remove skills from catalog
@@ -263,6 +265,35 @@ Tasks support priorities (`low`, `medium`, `high`, `urgent`), due dates, and sub
 
 ---
 
+## Project Memory
+
+Track ongoing work across multiple conversations with persistent project documents. Each project is a markdown file the agent creates, reads, and updates on demand — like a living notebook for each topic you're working on.
+
+**Creating a project:**
+> "I'm working on a presentation about AI in tourism"
+> "New project: server migration to Hetzner"
+
+The agent creates a structured markdown document with goals, notes, and open items.
+
+**Checking projects:**
+> "What projects do I have?"
+> "What's the status of the presentation?"
+
+Active project names are shown to the agent automatically — it always knows what you're working on.
+
+**Updating a project:**
+> "Add to the presentation: slide 3 should show statistics"
+> "Update the server migration: DNS is now configured"
+
+The agent reads the current document, adds your notes, and saves the updated version.
+
+**Archiving:**
+> "The presentation is done"
+
+Sets the project status to `completed` — it disappears from the active list but stays in the database.
+
+---
+
 ## Reminders & Scheduled Actions
 
 The agent supports two types of timed actions:
@@ -332,6 +363,7 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 | `agents` | Tool instructions, MCP config, memory behavior — loaded into system prompt |
 | `user_profiles` | User name, timezone, preferences (language, morning briefing) |
 | `tasks` | Task management (title, status, priority, due date, subtasks) |
+| `projects` | Project documents (name, status, markdown content) |
 | `reminders` | Scheduled reminders + tasks (message, time, type, delivery status) |
 | `heartbeat_config` | Heartbeat + morning briefing settings (enabled, last_run, intervals) |
 | `tools_config` | API keys for Anthropic, embedding provider — used by Heartbeat + Consolidation |
