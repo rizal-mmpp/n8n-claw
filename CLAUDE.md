@@ -51,7 +51,7 @@ n8n-claw/
 
 ## Database Schema
 
-The agent reads configuration from PostgreSQL at runtime via PostgREST (`http://172.17.0.1:8000`).
+The agent reads configuration from PostgreSQL at runtime via PostgREST (`http://kong:8000` — Docker-internal only, not exposed to the host).
 
 | Table | Purpose | Key columns |
 |---|---|---|
@@ -180,7 +180,7 @@ All sensitive values use `{{PLACEHOLDER}}` format. `setup.sh` replaces these at 
 
 | Placeholder | Value |
 |---|---|
-| `{{SUPABASE_URL}}` | `http://172.17.0.1:8000` (Docker host IP) |
+| `{{SUPABASE_URL}}` | `http://kong:8000` (Docker-internal, not exposed to host) |
 | `{{SUPABASE_SERVICE_KEY}}` | JWT service role key |
 | `{{N8N_URL}}` | Public n8n URL |
 | `{{N8N_INTERNAL_URL}}` | `http://172.17.0.1:5678` (Docker host IP) |
@@ -303,7 +303,7 @@ docker logs -f n8n-claw
 | Python for DB writes in setup.sh | Shell heredoc + psql = locale/quoting hell |
 | PostgREST instead of full Supabase | Lighter, no `supabase_admin` dependencies except Studio |
 | `toolWorkflow` over `toolCode` for tools | More reliable parameter passing via `$json` |
-| `172.17.0.1` for internal service URLs | Docker containers can't reach `localhost` |
+| `172.17.0.1` for n8n internal URL | Docker containers can't reach `localhost`; PostgREST uses Docker DNS (`kong:8000`) instead |
 
 ---
 

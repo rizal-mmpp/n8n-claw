@@ -166,7 +166,7 @@ After setup, these services run:
 |---|---|---|
 | n8n | `http://YOUR-IP:5678` | Workflow editor |
 | Supabase Studio | `http://localhost:3001` (via SSH tunnel) | Database admin UI |
-| PostgREST API | `http://YOUR-IP:8000` | REST API for PostgreSQL |
+| PostgREST API | `http://kong:8000` (Docker-internal only) | REST API for PostgreSQL |
 
 ### Accessing Supabase Studio
 
@@ -202,6 +202,20 @@ You can also regenerate a credential link later:
 > "Add credential for news-newsapi"
 
 Want to create your own skills? See the [template contribution guide](https://github.com/freddy-schuetz/n8n-claw-templates#creating-a-template).
+
+> **⚠️ Security notice — Skill credentials are stored in plain text**
+>
+> API keys entered via the credential form are currently stored **unencrypted** in the `template_credentials` table in PostgreSQL. This means:
+>
+> - Anyone with access to the database can read all stored API keys
+> - Supabase Studio (`localhost:3001`, accessible via SSH tunnel) shows credentials in plain text
+> - A compromised VPS exposes all stored API keys
+>
+> PostgREST is **not exposed** to the internet — it runs on a Docker-internal network only. Direct database access (port 5432) is bound to `127.0.0.1`. The main risk is SSH/VPS compromise, not network exposure.
+>
+> **Mitigation:** Secure SSH access (key-based, no root password), and use API keys with minimal permissions where possible.
+>
+> Encryption at rest for skill credentials is planned and in progress.
 
 ---
 
