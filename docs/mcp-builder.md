@@ -5,7 +5,7 @@
 When you ask n8n-claw to build a new MCP tool, the MCP Builder workflow runs:
 
 ```
-Start → Search API Docs (Brave) → Fetch Docs (Jina Reader)
+Start → Search API Docs (SearXNG) → Fetch Docs (Jina Reader)
      → BuildPrompt (LLM prompt with docs)
      → Generate Tool (Claude)
      → Assemble & Deploy

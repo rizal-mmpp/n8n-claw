@@ -22,12 +22,17 @@ The agent lives in n8n workflows. There is no custom application code — everyt
 ```
 n8n-claw/
 ├── workflows/              # n8n workflow JSON files (source of truth)
-│   ├── n8n-claw-agent.json     # Main agent workflow
-│   ├── mcp-builder.json        # Builds new MCP Server workflows
-│   ├── mcp-client.json         # Calls tools on MCP servers (sub-workflow)
-│   ├── mcp-weather-example.json # Example MCP server (Open-Meteo)
-│   ├── reminder-factory.json   # Creates timed Telegram reminders
-│   └── workflow-builder.json   # Builds general n8n automations (Claude Code CLI)
+│   ├── n8n-claw-agent.json         # Main agent workflow
+│   ├── mcp-builder.json            # Builds new MCP Server workflows
+│   ├── mcp-client.json             # Calls tools on MCP servers (sub-workflow)
+│   ├── mcp-library-manager.json    # Installs/removes skills from template catalog
+│   ├── mcp-weather-example.json    # Example MCP server (Open-Meteo)
+│   ├── credential-form.json        # HTTPS form for secure credential entry
+│   ├── reminder-factory.json       # Creates reminders (inserts into reminders table)
+│   ├── reminder-runner.json        # Polls reminders table every minute, executes due reminders
+│   ├── memory-consolidation.json   # Nightly: summarizes daily log → long-term memory
+│   ├── project-manager.json        # Persistent project memory across sessions
+│   └── workflow-builder.json       # Builds general n8n automations (Claude Code CLI)
 │
 ├── supabase/
 │   ├── migrations/
@@ -57,6 +62,10 @@ The agent reads configuration from PostgreSQL at runtime via PostgREST (`http://
 | `memory_long` | Long-term memory | `content`, `category`, `importance`, `embedding` |
 | `memory_daily` | Daily interaction log | `date`, `content`, `role` |
 | `mcp_registry` | Available MCP servers | `server_name`, `path`, `mcp_url`, `tools[]`, `active` |
+| `reminders` | Scheduled reminders & actions | `message`, `fire_at`, `status`, `chat_id` |
+| `credential_tokens` | One-time tokens for credential form | `token`, `template_id`, `cred_key`, `expires_at` |
+| `template_credentials` | API keys for installed skills | `template_id`, `cred_key`, `cred_value` |
+| `project_memory` | Persistent project context | `key`, `content`, `updated_at` |
 
 ### Important: soul + agents are the system prompt
 
@@ -83,7 +92,9 @@ Telegram Trigger
       ├── Reminder (toolWorkflow → ReminderFactory)
       ├── WorkflowBuilder (toolWorkflow → WorkflowBuilder)
       ├── MCP Builder (toolWorkflow → MCP Builder)
-      └── MCP Client (toolCode)
+      ├── MCP Client (toolCode)
+      ├── Library Manager (toolWorkflow → MCP Library Manager)
+      └── Project Manager (toolWorkflow → Project Manager)
   → Save Conversation (postgres)
   → Save Daily Log (postgres)
   → Telegram Reply
@@ -98,6 +109,66 @@ MCP servers are **always** built as two workflows:
 **Why two workflows?** n8n's `toolCode` node requires `specifyInputSchema: true` for `query.*` to work, but this field is silently ignored when creating workflows via API. The `toolWorkflow` + sub-workflow pattern avoids this bug entirely — parameters arrive via `$json.param` which always works.
 
 After building an MCP server, the user must **deactivate → reactivate** it in the n8n UI. This is a known n8n webhook registration bug with no workaround.
+
+### MCP Skills & Template System
+
+The agent can install pre-built capabilities ("Skills") from a catalog. The system has three layers:
+
+1. **Template Catalog** — GitHub repo [`freddy-schuetz/n8n-claw-templates`](https://github.com/freddy-schuetz/n8n-claw-templates) with `manifest.json` + `workflow.json` per skill, served via jsDelivr CDN
+2. **Library Manager** (`mcp-library-manager.json`) — sub-workflow that installs/removes skills: fetches from CDN, imports workflows, registers in `mcp_registry`
+3. **Credential Form** (`credential-form.json`) — HTTPS form with one-time tokens for secure API key entry (no keys in chat)
+
+**CDN caching:** jsDelivr caches `@master` for hours. Always pin to a specific commit hash in `CDN_BASE` (e.g. `@83a1021`). Update the hash when new templates are added to the catalog.
+
+**Terminology:** "Skills" (user-facing) = "Templates" (code/repo level). Same thing, different audience.
+
+#### Templates Repo (local clone)
+
+The templates repo is cloned alongside this repo:
+
+```
+../n8n-claw-templates/        # sibling directory (same parent as n8n-claw)
+├── templates/
+│   ├── index.json             # central catalog — must list every template
+│   ├── TEMPLATE_EXAMPLE.md    # reference for creating new templates
+│   └── <template-id>/         # one directory per skill
+│       ├── manifest.json      # metadata: name, category, tools, credentials_required
+│       └── workflow.json      # two-workflow bundle: { format, sub, server }
+├── README.md                  # available skills table
+└── CLAUDE.md                  # dev guide for the templates repo
+```
+
+**Default branch:** `master` (not `main`)
+
+#### Adding a New Skill
+
+1. Create `templates/<skill-id>/manifest.json` + `workflow.json` (see `TEMPLATE_EXAMPLE.md` for format)
+2. Add entry to `templates/index.json`
+3. Update `README.md` skills table (sorted: Category → Skill alphabetically)
+4. Commit, push to `master`
+5. Update `CDN_BASE` commit hash in:
+   - **Live instance**: Library Manager workflow via n8n API or MCP tool
+   - **Repo**: `workflows/mcp-library-manager.json` in n8n-claw
+6. Purge jsDelivr cache if needed: `curl https://purge.jsdelivr.net/gh/freddy-schuetz/n8n-claw-templates@<hash>/templates/index.json`
+
+### Reminder Runner
+
+Reminders use a **single polling workflow** (`reminder-runner.json`) that checks the `reminders` table every minute. The ReminderFactory tool just inserts a row — the Runner handles execution. This also supports scheduled actions where the agent executes instructions at a set time.
+
+---
+
+## dmo-claw — Tourism Fork
+
+[`dmo-claw`](https://github.com/freddy-schuetz/dmo-claw/) is a separate fork of n8n-claw built for tourism DMOs (Destination Management Organizations). Key differences:
+
+| | n8n-claw | dmo-claw |
+|---|---|---|
+| Interface | Telegram | OpenWebUI (Webhook) |
+| Users | Single user | Multi-user with roles |
+| Agent name | (configurable) | Petra |
+| Extra workflows | — | Morning Briefing, Weekly Report, Google Reviews, Instagram Posting, Memory Consolidation |
+
+dmo-claw has its own VPS, DB, and workflows. Code changes to core agent logic should be made in n8n-claw first, then ported to dmo-claw. The `.mcp.json` config includes both servers for direct access via Claude Code.
 
 ---
 
@@ -123,6 +194,8 @@ Hardcoded workflow IDs in the agent use `REPLACE_*` placeholders:
 - `REPLACE_REMINDER_FACTORY_ID`
 - `REPLACE_WORKFLOW_BUILDER_ID`
 - `REPLACE_MCP_BUILDER_ID`
+- `REPLACE_LIBRARY_MANAGER_ID`
+- `REPLACE_PROJECT_MANAGER_ID`
 
 `setup.sh` patches these after import using the actual IDs returned by the n8n API.
 
