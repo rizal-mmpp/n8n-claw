@@ -1092,14 +1092,6 @@
       }
     },
     {
-      "parameters": {
-        "chatId": "={{ $('Build System Prompt').first().json.chatId }}",
-        "text": "={{ $json.text }}",
-        "additionalFields": {
-          "appendAttribution": false,
-          "parse_mode": "Markdown"
-        }
-      },
       "id": "split-long-message",
       "name": "Split Long Message",
       "type": "n8n-nodes-base.code",
@@ -1113,6 +1105,14 @@
       }
     },
     {
+      "parameters": {
+        "chatId": "={{ $('Build System Prompt').first().json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
       "id": "telegram-reply",
       "name": "Telegram Reply",
       "type": "n8n-nodes-base.telegram",
