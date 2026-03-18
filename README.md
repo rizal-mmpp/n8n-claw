@@ -446,6 +446,49 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 
 ---
 
+## Alternative LLM Providers
+
+n8n-claw is built for Claude (Anthropic) but works with **any OpenAI-compatible LLM** — including llama.cpp, Ollama, LM Studio, vLLM, OpenRouter, or any provider that exposes an OpenAI-compatible API endpoint.
+
+### How to switch
+
+Replace the Anthropic LLM node in these workflows with an **OpenAI Chat Model** node:
+
+| Workflow | Node to replace | Default model |
+|---|---|---|
+| 🤖 n8n-claw Agent | "Claude" (LLM sub-node) | Claude Sonnet |
+| 🏗️ MCP Builder | "Anthropic Chat Model" (2 nodes) | Claude Opus |
+| 🧠 Sub-Agent Runner | "Claude" (LLM sub-node) | Claude Sonnet |
+
+**Steps:**
+
+1. Open the workflow in n8n
+2. Delete the existing Anthropic LLM node (the one connected to the AI Agent node)
+3. Add an **OpenAI Chat Model** node and connect it in the same position
+4. In the OpenAI node settings:
+   - Set **Base URL** to your local endpoint (e.g. `http://localhost:8080/v1` for llama.cpp, `http://localhost:11434/v1` for Ollama)
+   - Select your model
+   - **Disable Responses API** (toggle off — important for local models)
+5. Create an OpenAI credential with your endpoint URL and API key (use any string for local models that don't require auth)
+
+### Known limitations
+
+- **Heartbeat** and **Memory Consolidation** workflows currently use hardcoded Anthropic API calls in JavaScript code nodes. These won't work with alternative providers yet — deactivate them if you're running without an Anthropic key. Provider abstraction for these workflows is on the roadmap.
+- **setup.sh** still requires an Anthropic API key during setup (the prompt doesn't accept empty input). Enter any placeholder value (e.g. `sk-dummy`) if you only use local models — the key is only used by Heartbeat and Memory Consolidation (which you should deactivate in that case).
+- **MCP Builder** uses Claude Opus for code generation. Results may vary with smaller local models.
+- Some local models may prefix tool call JSON with extra text (emojis, descriptions). This was fixed in [#13](https://github.com/freddy-schuetz/n8n-claw/issues/13) — make sure you're on the latest version.
+
+### Community-tested providers
+
+| Provider | Status | Notes |
+|---|---|---|
+| llama.cpp (qwen-coder-next) | ✅ Working | Reported by community ([Discussion #6](https://github.com/freddy-schuetz/n8n-claw/discussions/6)) — text + MCP weather confirmed |
+| Ollama | ✅ Expected to work | OpenAI-compatible endpoint at `localhost:11434/v1` |
+
+> Tested a different provider? Let us know in [Discussions](https://github.com/freddy-schuetz/n8n-claw/discussions)!
+
+---
+
 ## HTTPS Setup
 
 If you provided a domain during setup, HTTPS is configured automatically via Let's Encrypt + nginx. This is the default and works for most people. If not, you can add it later:
