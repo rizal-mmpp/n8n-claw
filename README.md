@@ -489,6 +489,108 @@ Replace the Anthropic LLM node in these workflows with an **OpenAI Chat Model** 
 
 ---
 
+## Switching from Telegram to WhatsApp
+
+n8n-claw uses Telegram by default, but you can switch to WhatsApp by replacing the Telegram nodes in the n8n UI. This requires changes in 3 workflows across 8 nodes — no code outside of n8n needed.
+
+### Requirements
+
+- A **Meta Business account** with WhatsApp Business API access — [Meta Business Suite](https://business.facebook.com/)
+- A **verified business** on Meta (review can take 1–5 business days)
+- A **phone number** registered with WhatsApp Business API (not your personal WhatsApp number)
+- WhatsApp Business Cloud credentials configured in n8n — see [n8n WhatsApp credentials docs](https://docs.n8n.io/integrations/builtin/credentials/whatsapp/)
+
+### Field mapping: Telegram → WhatsApp
+
+The two platforms use different JSON structures. Here's how the fields map:
+
+| Data | Telegram path | WhatsApp path |
+|---|---|---|
+| **Message text** | `$json.message.text` | `$json.messages[0].text.body` |
+| **Sender ID** | `$json.message.from.id` | `$json.contacts[0].wa_id` |
+| **Chat/Session ID** | `$json.message.chat.id` | `$json.contacts[0].wa_id` (phone number) |
+| **Voice message** | `$json.message.voice.file_id` | WhatsApp audio media ID |
+| **Photo** | `$json.message.photo.pop().file_id` | WhatsApp image media ID |
+| **Document** | `$json.message.document.file_id` | WhatsApp document media ID |
+| **Caption** | `$json.message.caption` | `$json.messages[0].image.caption` (or `.document.caption`) |
+| **Location** | `$json.message.location.latitude/longitude` | `$json.messages[0].location.latitude/longitude` |
+| **Send to** | `chatId` (numeric) | Recipient phone number (e.g. `49151...`) |
+| **DB session prefix** | `telegram:{chatId}` | `whatsapp:{phoneNumber}` |
+| **DB user prefix** | `telegram:{userId}` | `whatsapp:{phoneNumber}` |
+
+### Nodes to replace
+
+#### 🤖 n8n-claw Agent (6 nodes)
+
+| Current node | Purpose | Replace with |
+|---|---|---|
+| **Telegram Trigger** | Receives incoming messages | **WhatsApp Trigger** — update the "Route Media Type" switch conditions to match WhatsApp's message structure |
+| **Telegram Reply** | Sends agent response | **WhatsApp → Send Message** — set recipient to sender's phone number instead of `chatId` |
+| **Telegram Status** | Progress updates during long tasks (AI tool) | **WhatsApp → Send Message** (configured as [tool node](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.toolworkflow/)) |
+| **Get Voice File** | Downloads voice messages for transcription | **HTTP Request** node calling WhatsApp's media download endpoint with the media ID |
+| **Get Photo File** | Downloads photos for vision analysis | **HTTP Request** node calling WhatsApp's media download endpoint |
+| **Get Doc File** | Downloads documents for text extraction | **HTTP Request** node calling WhatsApp's media download endpoint |
+
+#### 💓 Heartbeat (1 node)
+
+| Current node | Purpose | Replace with |
+|---|---|---|
+| **Send Telegram** | Sends proactive reminders + morning briefing | **WhatsApp → Send Message** — update `chatId` parameter to use phone number |
+
+#### ⏰ Reminder Runner (1 node)
+
+| Current node | Purpose | Replace with |
+|---|---|---|
+| **Send Reminder** | Delivers timed reminders | **WhatsApp → Send Message** — the `chat_id` column in the `reminders` table must contain the phone number instead of Telegram chat ID |
+
+### Code nodes to update
+
+The **"Normalize Message"** code node in the main agent extracts message data from the Telegram Trigger output. Update these references:
+
+```javascript
+// BEFORE (Telegram)
+const msg = $('Telegram Trigger').first().json.message;
+const chatId = String(msg.chat.id);
+const userId = String(msg.from.id);
+const source = 'telegram';
+
+// AFTER (WhatsApp)
+const wa = $('WhatsApp Trigger').first().json;
+const chatId = String(wa.contacts[0].wa_id);
+const userId = String(wa.contacts[0].wa_id);
+const source = 'whatsapp';
+```
+
+Also update the **"Format Location"** code node and any other nodes that reference `$('Telegram Trigger')`.
+
+### Database changes
+
+Update these values to use phone numbers instead of Telegram chat IDs:
+
+| Table | Field | Change |
+|---|---|---|
+| `user_profiles` | `user_id` | `whatsapp:{phone}` instead of `telegram:{chatId}` |
+| `conversations` | `session_id` | `whatsapp:{phone}` instead of `telegram:{chatId}` |
+| `reminders` | `chat_id` | Phone number instead of Telegram chat ID |
+| `heartbeat_config` | — | Update `{{TELEGRAM_CHAT_ID}}` in Heartbeat workflow to phone number |
+
+### Message length limits
+
+Telegram allows 4096 characters per message. The agent splits long messages at 4000 characters. WhatsApp allows up to 4096 characters for text messages as well, so the existing split logic works without changes.
+
+### Media handling differences
+
+WhatsApp media downloads work differently from Telegram. Instead of a built-in "Get File" node, you need to:
+
+1. Get the media URL: `GET https://graph.facebook.com/v21.0/{media-id}` (with auth header)
+2. Download the file from the returned URL
+
+The existing voice transcription (Whisper) and photo analysis (GPT-4o Vision) nodes work the same once you have the file — only the download step changes.
+
+> This is an advanced customization. If you run into issues, ask in [Discussions](https://github.com/freddy-schuetz/n8n-claw/discussions).
+
+---
+
 ## HTTPS Setup
 
 If you provided a domain during setup, HTTPS is configured automatically via Let's Encrypt + nginx. This is the default and works for most people. If not, you can add it later:
