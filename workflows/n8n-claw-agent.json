@@ -1531,7 +1531,13 @@
         0,
         -300
       ],
-      "webhookId": "webhook-agent-api"
+      "webhookId": "webhook-agent-api",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Webhook Auth"
+        }
+      }
     },
     {
       "parameters": {

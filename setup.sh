@@ -477,6 +477,12 @@ creds=json.load(sys.stdin).get('data',[])
 for c in creds:
     if c.get('type')=='anthropicApi': print(c['id']); break
 " 2>/dev/null)
+EXISTING_HEADERAUTH_ID=$(echo "$EXISTING_CREDS" | python3 -c "
+import sys,json
+creds=json.load(sys.stdin).get('data',[])
+for c in creds:
+    if c.get('type')=='httpHeaderAuth': print(c['id']); break
+" 2>/dev/null)
 if [ -n "$EXISTING_ANTHROPIC_ID" ]; then
   ANTHROPIC_CRED_ID="$EXISTING_ANTHROPIC_ID"
   echo "  ✅ Anthropic API → ${ANTHROPIC_CRED_ID} (existing)"
@@ -529,6 +535,16 @@ if [ -n "$OPENAI_API_KEY" ] && [[ "$OPENAI_API_KEY" != "your_"* ]]; then
   fi
 else
   echo -e "  ${YELLOW}ℹ️  OpenAI API Key not set — voice transcription disabled${NC}"
+fi
+
+# Webhook Auth credential (for webhook API authentication)
+HEADERAUTH_CRED_ID=""
+if [ -n "$EXISTING_HEADERAUTH_ID" ]; then
+  HEADERAUTH_CRED_ID="$EXISTING_HEADERAUTH_ID"
+  echo "  ✅ Webhook Auth → ${HEADERAUTH_CRED_ID} (existing)"
+else
+  HEADERAUTH_CRED_ID=$(create_cred "Webhook Auth" "httpHeaderAuth" "{\"name\":\"X-API-Key\",\"value\":\"${WEBHOOK_SECRET}\"}")
+  [ -z "$HEADERAUTH_CRED_ID" ] && echo -e "  ${YELLOW}⚠️  Webhook Auth credential failed — create manually in n8n UI${NC}" || echo "  ✅ Webhook Auth → ${HEADERAUTH_CRED_ID} (created)"
 fi
 
 fi  # end INSTALL_MODE guard for credentials
@@ -587,6 +603,31 @@ for wf in data.get('data', []):
       -e "s|{{WEBHOOK_SECRET}}|${WEBHOOK_SECRET}|g" \
       "$out"
 
+    # Patch credential IDs
+    python3 -c "
+import json, sys
+f = sys.argv[1]
+mapping = {}
+if sys.argv[2] and sys.argv[2] not in ('', 'ERR', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
+    mapping['telegramApi'] = sys.argv[2]
+if sys.argv[3] and sys.argv[3] not in ('', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
+    mapping['postgres'] = sys.argv[3]
+if sys.argv[4] and sys.argv[4] not in ('', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
+    mapping['anthropicApi'] = sys.argv[4]
+if sys.argv[5] and sys.argv[5] not in ('',):
+    mapping['openAiApi'] = sys.argv[5]
+if len(sys.argv) > 6 and sys.argv[6] and sys.argv[6] not in ('', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
+    mapping['httpHeaderAuth'] = sys.argv[6]
+with open(f) as fh:
+    wf = json.load(fh)
+for node in wf.get('nodes', []):
+    for cred_type, cred_data in node.get('credentials', {}).items():
+        if cred_type in mapping:
+            cred_data['id'] = mapping[cred_type]
+with open(f, 'w') as fh:
+    json.dump(wf, fh, indent=2, ensure_ascii=False)
+" "$out" "${TELEGRAM_CRED_ID:-}" "${POSTGRES_CRED_ID:-}" "${ANTHROPIC_CRED_ID:-}" "${OPENAI_CRED_ID:-}" "${HEADERAUTH_CRED_ID:-}"
+
     resp=$(curl -s -X POST "${N8N_BASE}/api/v1/workflows" \
       -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
       -H "Content-Type: application/json" -d @"$out")
@@ -631,6 +672,8 @@ if sys.argv[4] and sys.argv[4] not in ('', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
     mapping['anthropicApi'] = sys.argv[4]
 if sys.argv[5] and sys.argv[5] not in ('',):
     mapping['openAiApi'] = sys.argv[5]
+if len(sys.argv) > 6 and sys.argv[6] and sys.argv[6] not in ('', 'REPLACE_WITH_YOUR_CREDENTIAL_ID'):
+    mapping['httpHeaderAuth'] = sys.argv[6]
 with open(f) as fh:
     wf = json.load(fh)
 for node in wf.get('nodes', []):
@@ -639,7 +682,7 @@ for node in wf.get('nodes', []):
             cred_data['id'] = mapping[cred_type]
 with open(f, 'w') as fh:
     json.dump(wf, fh, indent=2, ensure_ascii=False)
-" "$out" "${TELEGRAM_CRED_ID:-}" "${POSTGRES_CRED_ID:-}" "${ANTHROPIC_CRED_ID:-}" "${OPENAI_CRED_ID:-}"
+" "$out" "${TELEGRAM_CRED_ID:-}" "${POSTGRES_CRED_ID:-}" "${ANTHROPIC_CRED_ID:-}" "${OPENAI_CRED_ID:-}" "${HEADERAUTH_CRED_ID:-}"
 done
 IMPORT_ORDER="mcp-client reminder-factory reminder-runner mcp-weather-example workflow-builder mcp-builder mcp-library-manager agent-library-manager sub-agent-runner credential-form memory-consolidation background-checker heartbeat webhook-adapter n8n-claw-agent"
 

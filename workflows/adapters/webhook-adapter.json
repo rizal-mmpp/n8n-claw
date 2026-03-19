@@ -124,7 +124,13 @@
         0,
         0
       ],
-      "webhookId": "webhook-adapter-api"
+      "webhookId": "webhook-adapter-api",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Webhook Auth"
+        }
+      }
     },
     {
       "parameters": {
