@@ -103,6 +103,29 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Respond to Paperclip",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post Paperclip Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Paperclip Comment": {
+      "main": [
+        [
+          {
+            "node": "Mark Issue Done",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
@@ -174,7 +197,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Map Generic / Paperclip input to n8n-claw Agent format\n// Paperclip sends: { message, name, agentId, model, timeoutSeconds }\n// Generic sends:   { message, user_id, session_id, source, metadata }\nconst body = $json.body || $json;\nconst message = body.message || body.text || '';\nconst userId = body.user_id || body.name || 'anonymous';\nconst sessionId = body.session_id\n  || (body.agentId ? `paperclip:${body.agentId}` : `api:${userId}`);\nconst source = body.source || (body.agentId ? 'paperclip' : 'api');\n\nreturn [{ json: {\n  message,\n  user_id: userId,\n  session_id: sessionId,\n  source,\n  metadata: {\n    _responseChannel: 'webhook',\n    ...(body.metadata || {}),\n    ...(body.timeoutSeconds ? { timeoutSeconds: body.timeoutSeconds } : {})\n  }\n} }];"
+        "jsCode": "// Map Generic / Paperclip input to n8n-claw Agent format\n// Paperclip sends: { source, agentId, runId, context: { issueId, taskId, wakeReason, ... } }\n// Generic sends:   { message, user_id, session_id, source, metadata }\nconst body = $json.body || $json;\n\n// ── Paperclip detection: has runId + context (no message field) ──\nconst isPaperclip = !!(body.runId && body.context);\nif (isPaperclip) {\n  const ctx = body.context || {};\n  const issueId = ctx.issueId || ctx.taskId || '';\n  const agentId = body.agentId || 'unknown';\n  const wakeReason = ctx.wakeReason || 'unknown';\n\n  // Fetch issue title+description from Paperclip API\n  // Container DNS name 'paperclip:3100' (same Docker network)\n  // Replace PAPERCLIP_KEY with your Agent API Key from Paperclip\n  const PAPERCLIP_URL = '{{PAPERCLIP_INTERNAL_URL}}';\n  const PAPERCLIP_KEY = '{{PAPERCLIP_AGENT_KEY}}';\n  let message = `[Paperclip] Task (${wakeReason})`;\n  if (issueId && PAPERCLIP_KEY && !PAPERCLIP_KEY.startsWith('{{')) {\n    try {\n      const issue = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `${PAPERCLIP_URL}/api/issues/${issueId}`,\n        headers: { 'Authorization': `Bearer ${PAPERCLIP_KEY}` },\n        returnFullResponse: true\n      });\n      const data = typeof issue === 'string' ? JSON.parse(issue) : (issue.body ? (typeof issue.body === 'string' ? JSON.parse(issue.body) : issue.body) : issue);\n      const title = data.title || '';\n      const desc = data.description || '';\n      if (title) message = desc ? `${title}\\n\\n${desc}` : title;\n    } catch(e) {\n      message += ` — Issue: ${issueId}`;\n    }\n  } else if (issueId) {\n    message += ` — Issue: ${issueId}`;\n  }\n\n  return [{ json: {\n    message,\n    user_id: `paperclip:${agentId}`,\n    session_id: `paperclip:${agentId}`,\n    source: 'paperclip',\n    metadata: {\n      _responseChannel: 'paperclip',\n      runId: body.runId,\n      issueId,\n      wakeReason,\n      paperclipContext: ctx\n    }\n  } }];\n}\n\n// ── Generic / other webhook input ──\nconst message = body.message || body.text || '';\nconst userId = body.user_id || body.name || 'anonymous';\nconst sessionId = body.session_id\n  || (body.agentId ? `paperclip:${body.agentId}` : `api:${userId}`);\nconst source = body.source || (body.agentId ? 'paperclip' : 'api');\n\nreturn [{ json: {\n  message,\n  user_id: userId,\n  session_id: sessionId,\n  source,\n  metadata: {\n    _responseChannel: 'webhook',\n    ...(body.metadata || {}),\n    ...(body.timeoutSeconds ? { timeoutSeconds: body.timeoutSeconds } : {})\n  }\n} }];"
       },
       "id": "map-generic-input",
       "name": "Map Generic Input",
@@ -309,6 +332,28 @@
               },
               "renameOutput": true,
               "outputKey": "Teams"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.metadata?._responseChannel }}",
+                    "rightValue": "paperclip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Paperclip"
             }
           ]
         },
@@ -393,6 +438,81 @@
           "name": "Microsoft Teams"
         }
       }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-to-paperclip",
+      "name": "Respond to Paperclip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1600,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ '{{PAPERCLIP_INTERNAL_URL}}' + '/api/issues/' + $json.metadata?.issueId + '/comments' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{PAPERCLIP_AGENT_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ body: $json.response }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-paperclip-comment",
+      "name": "Post Paperclip Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ '{{PAPERCLIP_INTERNAL_URL}}' + '/api/issues/' + $json.issueId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{PAPERCLIP_AGENT_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'done' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "mark-issue-done",
+      "name": "Mark Issue Done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        600
+      ]
     },
     {
       "parameters": {
