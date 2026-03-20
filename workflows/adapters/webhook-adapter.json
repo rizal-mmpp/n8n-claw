@@ -128,6 +128,28 @@
           }
         ]
       ]
+    },
+    "Custom Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Map Custom Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Custom Input": {
+      "main": [
+        [
+          {
+            "node": "Call n8n-claw Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodes": [
@@ -572,6 +594,94 @@
       "position": [
         -500,
         480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "custom",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "custom-webhook-trigger",
+      "name": "Custom Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        900
+      ],
+      "webhookId": "webhook-custom-api",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Webhook Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-message",
+              "name": "message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "field-user-id",
+              "name": "user_id",
+              "value": "={{ $json.body.user_id || 'anonymous' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-session-id",
+              "name": "session_id",
+              "value": "={{ $json.body.session_id || 'custom:' + ($json.body.user_id || 'anonymous') }}",
+              "type": "string"
+            },
+            {
+              "id": "field-source",
+              "name": "source",
+              "value": "={{ $json.body.source || 'custom' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-metadata",
+              "name": "metadata",
+              "value": "={{ { _responseChannel: 'webhook' } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "map-custom-input",
+      "name": "Map Custom Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🛠️ Custom App Setup\n\nThis path is for your own integrations.\nEndpoint: `POST /webhook/custom`\n\n**How to:**\n1. Open the **Map Custom Input** Set node\n2. Adjust the fields to match your app:\n   - `message` → The field containing the text\n   - `user_id` → The sender identifier\n   - `session_id` → Unique conversation ID\n   - `source` → Your app's name\n3. Send a POST with `X-API-Key` header\n\n**Example:** Your app sends `{ \"text\": \"Hello\", \"username\": \"bob\" }`\n→ Change `$json.body.message` to `$json.body.text`\n→ Change `$json.body.user_id` to `$json.body.username`",
+        "width": 400,
+        "height": 380
+      },
+      "id": "sticky-custom-setup",
+      "name": "Custom App Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        800
       ]
     }
   ]

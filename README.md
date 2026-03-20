@@ -53,9 +53,10 @@ n8n-claw Agent (Claude Sonnet)
   └── Telegram?      → Telegram Reply
 
 Webhook Adapter (optional, connects external systems):
-  💬 Slack Trigger    ──┐
-  💬 Teams Trigger    ──┼── Map Input → POST /webhook/agent → Route Response
-  🌐 Generic Webhook  ──┘
+  💬 Slack Trigger     ──┐
+  💬 Teams Trigger     ──┤
+  🌐 Generic Webhook   ──┼── Map Input → POST /webhook/agent → Route Response
+  🛠️ Custom Webhook    ──┘   (Set node — easy to customize, no code)
 
 Background Workflows (automated):
   💓 Heartbeat              — every 5 min: recurring actions + proactive reminders
@@ -216,6 +217,7 @@ After setup, these services run:
 | Supabase Studio | `http://localhost:3001` (via SSH tunnel) | Database admin UI |
 | Webhook API | `https://YOUR-DOMAIN/webhook/agent` | Agent HTTP endpoint (POST, requires X-API-Key header) |
 | Webhook Adapter | `https://YOUR-DOMAIN/webhook/adapter` | Multi-system adapter endpoint (POST) |
+| Custom Webhook | `https://YOUR-DOMAIN/webhook/custom` | Easy-to-customize adapter (Set node, no code) |
 | PostgREST API | `http://kong:8000` (Docker-internal only) | REST API for PostgreSQL |
 
 ### Accessing Supabase Studio
@@ -278,13 +280,14 @@ The agent uses `session_id` and `user_id` (with source prefix) for conversation 
 
 For systems that need input/output mapping (different message formats, response routing), use the **Webhook Adapter** workflow. It translates between external formats and the agent's webhook API.
 
-The adapter ships with three triggers:
+The adapter ships with four triggers:
 
-| Trigger | Default state | Use case |
-|---|---|---|
-| **Generic Webhook** (`/webhook/adapter`) | Active | Paperclip, custom apps, other n8n instances |
-| **Slack Trigger** | Disabled | Slack workspace integration |
-| **Teams Trigger** | Disabled | Microsoft Teams integration |
+| Trigger | Endpoint | Default state | Use case |
+|---|---|---|---|
+| **Generic Webhook** | `/webhook/adapter` | Active | Paperclip, API power-users (Code node with fallback chains) |
+| **Custom Webhook** | `/webhook/custom` | Active | Your own apps — simple Set node, easy to customize without code |
+| **Slack Trigger** | — | Disabled | Slack workspace integration |
+| **Teams Trigger** | — | Disabled | Microsoft Teams integration |
 
 Each trigger has a mapper node that normalizes messages → calls `/webhook/agent` → routes the response back to the right system via `metadata._responseChannel`. Paperclip payloads are auto-detected and get a dedicated response branch that posts the agent's answer as a comment and marks the issue as done.
 
@@ -346,7 +349,17 @@ The adapter auto-detects Paperclip's payload format (`runId` + `context`), fetch
 
 ### Adding a Custom Integration
 
-To connect a new system:
+**Easiest way — use the Custom Webhook (no code):**
+
+1. Open the **Map Custom Input** Set node in the Webhook Adapter workflow
+2. Adjust the field mappings to match your app's JSON structure:
+   - `message` → the field containing the user's text (e.g. `$json.body.text`)
+   - `user_id` → the sender identifier (e.g. `$json.body.username`)
+   - `session_id` → unique conversation ID
+   - `source` → your app's name
+3. Send a POST to `/webhook/custom` with `X-API-Key` header
+
+**Advanced — add a new trigger (for systems with custom response routing):**
 
 1. Add a new **Trigger node** in the Webhook Adapter workflow
 2. Add a new **Map node** (Code node) that outputs: `{ message, user_id, session_id, source, metadata: { _responseChannel: "your-system" } }`
