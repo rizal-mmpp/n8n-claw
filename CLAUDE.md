@@ -126,11 +126,20 @@ Body: { "message": "...", "user_id": "...", "session_id": "...", "source": "..."
 Response: { "success": true, "response": "...", "session_id": "...", "metadata": {} }
 ```
 
+Three webhook endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `/webhook/agent` | Direct agent API (used by adapter internally) |
+| `/webhook/adapter` | Generic + Paperclip input (Code node with auto-detection) |
+| `/webhook/custom` | Custom app input (Set node — easy to configure without code) |
+
 ### Webhook Adapter (`workflows/adapters/webhook-adapter.json`)
 
 A unified adapter workflow with multiple triggers for connecting external systems:
 
-- **Webhook Trigger** (active) — generic HTTP + Paperclip format
+- **Webhook Trigger** (active) — generic HTTP + Paperclip format (Code node with auto-detection, fetches Paperclip issue details via API)
+- **Custom Webhook Trigger** (active) — simple Set node for custom apps (non-coders can adjust field mapping in the UI)
 - **Slack Trigger** (disabled) — native n8n Slack integration
 - **Teams Trigger** (disabled) — native n8n Teams integration
 
