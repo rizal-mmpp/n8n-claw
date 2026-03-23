@@ -550,9 +550,13 @@ With the OpenClaw skill installed, n8n-claw can delegate tasks to OpenClaw and g
      grep -A2 'gateway:' ~/openclaw/config.yaml | grep api_key
      ```
    - **Caller ID** — a name that identifies your n8n-claw instance (e.g. "Greg (n8n-claw)")
-3. Make sure OpenClaw's gateway is reachable from your n8n-claw server. The `bind` setting in `config.yaml` must be `"lan"` or `"0.0.0.0"` (not `"loopback"`):
+3. Make sure OpenClaw's gateway is reachable from your n8n-claw server. Check the `bind` setting:
    ```bash
    grep -A2 'gateway:' ~/openclaw/config.yaml | grep bind
+   ```
+   If it says `"loopback"`, change it to `"lan"` and restart OpenClaw:
+   ```bash
+   nano ~/openclaw/config.yaml   # change bind: "loopback" → bind: "lan"
    ```
 4. Start delegating tasks
 
