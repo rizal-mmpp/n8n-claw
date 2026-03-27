@@ -241,6 +241,18 @@ curl -X POST https://YOUR-DOMAIN/webhook/agent \
 
 The `WEBHOOK_SECRET` is shown at the end of setup output (also in `.env`).
 
+### Secure your Telegram bot
+
+By default, your Telegram bot accepts messages from **anyone** who finds it. To restrict it to your chat only:
+
+1. Open the **n8n-claw Agent** workflow in n8n
+2. Click the **Telegram Trigger** node
+3. Under **Additional Fields**, add **Allowed Chat IDs**
+4. Enter your Telegram Chat ID (the one from setup)
+5. Save the workflow
+
+This ensures only you can talk to your agent. Without this, anyone on Telegram could message your bot and access the agent's capabilities.
+
 ---
 
 <details>
