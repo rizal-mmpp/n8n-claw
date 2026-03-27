@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/10b7b93d-f482-47c1-a144-80a1b9d1be16
 - [Services & URLs](#services--urls)
 - [Webhook API & External Integrations](#webhook-api--external-integrations)
 - [MCP Skills Library](#mcp-skills-library)
+- [Google Services (OAuth2)](#google-services-oauth2)
 - [Expert Agents](#expert-agents)
 - [OpenClaw Integration](#openclaw-integration)
 - [Building custom MCP Skills](#building-custom-mcp-skills)
@@ -473,6 +474,64 @@ Want to create your own skills? See the [template contribution guide](https://gi
 > **Mitigation:** Secure SSH access (key-based auth, no root password, fail2ban), and use API keys with minimal permissions where possible.
 >
 > Encryption at rest for skill credentials is planned and in progress.
+
+</details>
+
+---
+
+<details>
+<summary>
+
+## Google Services (OAuth2)
+
+</summary>
+
+Google Skills (Gmail, Google Calendar, Google Analytics, Google Ads) use OAuth2 for authentication — the agent handles the entire flow via Telegram, no n8n UI needed.
+
+All Google skills share a single set of OAuth credentials (`client_id` / `client_secret`). You set them up once, and every additional Google skill reuses them automatically. If a new skill needs extra permissions, the agent generates a new consent link with the expanded scopes.
+
+### Setup
+
+1. **Google Cloud Console** — [console.cloud.google.com](https://console.cloud.google.com)
+   - Create a project (or use an existing one)
+   - Enable the APIs you need: Gmail API, Google Calendar API, Google Analytics Data API, Google Ads API
+   - Go to **APIs & Services → OAuth consent screen**:
+     - User Type: **External** (or Internal for Google Workspace)
+     - Add your email as a **Test User**
+   - Go to **APIs & Services → Credentials → Create Credentials → OAuth Client ID**:
+     - Type: **Web application**
+     - Authorized redirect URI: `https://YOUR-N8N-DOMAIN/webhook/oauth-callback`
+     - Copy the **Client ID** and **Client Secret**
+
+2. **Install a Google skill** — ask your agent:
+   > "Install the Gmail skill"
+
+3. **Enter credentials** — the agent sends two secure form links (Client ID + Client Secret). Click each, paste the value, submit.
+
+4. **Authorize** — the agent generates a Google consent link. Click it, sign in with your Google account, grant permissions. The browser shows "Authorization successful" and the agent confirms via Telegram.
+
+5. **Done** — the skill is ready to use.
+
+### Available Google Skills
+
+| Skill | Tools | Scopes |
+|---|---|---|
+| Gmail | search, read, send, create draft, list labels | gmail.readonly, gmail.modify, gmail.send |
+| Google Calendar | list/create/update/delete events, list calendars | calendar, calendar.readonly |
+| Google Analytics | run reports, list properties, realtime data | analytics.readonly |
+| Google Ads (Beta) | list campaigns, ad groups, stats, performance | adwords |
+
+Google Ads requires an additional **Developer Token** and **Customer ID** (entered via separate credential forms).
+
+### Scope Expansion
+
+When you install a second Google skill (e.g. Calendar after Gmail), the agent checks if the existing token already covers the required scopes. If not, it generates a new consent link that requests all scopes at once (existing + new). Your previously stored refresh token is replaced with one that covers all permissions.
+
+### Important Notes
+
+- **Testing mode**: Google OAuth apps in "Testing" status have refresh tokens that expire after **7 days**. For permanent use, publish the app as "Internal" (Google Workspace) — no verification needed.
+- **Token refresh**: Access tokens are refreshed automatically (5-minute buffer before expiry).
+- **Shared credentials**: All Google skills share the same `client_id`, `client_secret`, and tokens under the `google-oauth` namespace. You only authenticate once.
 
 </details>
 
