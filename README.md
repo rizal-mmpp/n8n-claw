@@ -50,7 +50,7 @@ Talk to your agent in natural language — it manages tasks, remembers context a
 - **Proactive heartbeat** — automatically reminds you of overdue/urgent tasks
 - **Recurring actions** — repeating tasks on any schedule ("check my emails every 15 minutes", "daily briefing at 8am")
 - **Smart background checks** — monitoring tasks only notify you when something new is found
-- **Expert agents** — delegate complex tasks to specialized sub-agents (3 included, expandable from catalog)
+- **Expert agents** — delegate complex tasks to specialized sub-agents (3 included, 100+ available from [agent catalog](https://github.com/freddy-schuetz/n8n-claw-agents) across 12 categories)
 - **MCP Skills** — install pre-built skills or build new API integrations on demand
 - **Smart reminders** — timed Telegram reminders ("remind me in 2 hours to...")
 - **Scheduled actions** — the agent executes instructions at a set time ("search HN for AI news at 9am")
@@ -138,7 +138,7 @@ The script will:
    - Communication style (casual / professional / friendly)
    - Proactive vs reactive behavior
    - Free-text custom persona *(overrides the above)*
-6. **Start all services** (n8n, PostgreSQL, PostgREST, Kong)
+6. **Start all services** (n8n, PostgreSQL, PostgREST, Kong, Supabase Studio, SearXNG, Crawl4AI, Email Bridge)
 7. **Apply database schema** and seed data
 8. **Create n8n credentials** (Telegram Bot automatically)
 9. **Import all workflows** into n8n
@@ -224,6 +224,7 @@ Sub-workflows (called by other workflows, no manual activation needed):
 | Agent Library Manager | Agent — installs/removes expert agents |
 | ReminderFactory | Agent — creates, lists, edits, and deletes reminders/tasks |
 | credential-form | Library Manager — secure form for entering API keys |
+| OAuth Callback | Google Skills — handles OAuth2 authorization redirect |
 | Webhook Adapter | Connects Slack, Teams, and custom apps to the agent (imported inactive) |
 
 ### Step 4 — Start chatting
@@ -271,6 +272,9 @@ After setup, these services run:
 | Webhook API | `https://YOUR-DOMAIN/webhook/agent` | Agent HTTP endpoint (POST, requires X-API-Key header) |
 | Webhook Adapter | `https://YOUR-DOMAIN/webhook/adapter` | Multi-system adapter endpoint (POST) |
 | Custom Webhook | `https://YOUR-DOMAIN/webhook/custom` | Easy-to-customize adapter (Set node, no code) |
+| SearXNG | `http://localhost:8888` (Docker-internal) | Self-hosted web search engine |
+| Crawl4AI | Docker-internal only | Web reader — JS rendering to clean markdown |
+| Email Bridge | `http://localhost:3100` (Docker-internal) | IMAP/SMTP email REST API (for Email skill) |
 | PostgREST API | `http://kong:8000` (Docker-internal only) | REST API for PostgreSQL |
 
 ### Accessing Supabase Studio
@@ -439,7 +443,7 @@ The `_responseChannel` value in metadata tells the adapter where to route the ag
 
 </summary>
 
-Install pre-built skills from the [skill catalog](https://github.com/freddy-schuetz/n8n-claw-templates) — no coding required. Just ask your agent:
+**37 pre-built skills** available from the [skill catalog](https://github.com/freddy-schuetz/n8n-claw-templates) — install with a single chat command, no coding required.
 
 > "What skills are available?"
 > "Install weather-openmeteo"
@@ -447,16 +451,18 @@ Install pre-built skills from the [skill catalog](https://github.com/freddy-schu
 
 The Library Manager fetches skill templates from GitHub, imports the workflows into n8n, and registers the new MCP server automatically.
 
-**Available skills:**
-
-| Skill | Category | Description |
-|---|---|---|
-| Weather (Open-Meteo) | Productivity | Weather forecasts and current conditions |
-| Todoist | Productivity | Task management via Todoist API |
-| News (NewsAPI) | Productivity | Search news articles from 80,000+ sources |
-| NocoDB CRM | Productivity | Database/CRM operations on NocoDB instances |
-| Vikunja | Productivity | Task and project management via Vikunja |
-| OpenClaw | Communication | Connect to an OpenClaw AI agent instance |
+| Category | Examples |
+|---|---|
+| Communication | Gmail, Email (IMAP/SMTP), OpenClaw |
+| Productivity | Todoist, Notion, GitHub, Google Calendar, Nextcloud Files |
+| Finance | KontoFlux (Open Banking), Exchange Rates, Crypto Prices |
+| Knowledge | Wikipedia, OpenFoodFacts, Dictionary |
+| Transport | Deutsche Bahn, Route Planner, Wiener Linien |
+| Language | DeepL Translate |
+| News | Hacker News, NewsAPI |
+| Analytics | Google Analytics, Google Ads |
+| Utilities | PDF Tools, QR Code, Website Check |
+| Entertainment | TMDB Movies, Recipes |
 
 See the full catalog at [n8n-claw-templates](https://github.com/freddy-schuetz/n8n-claw-templates).
 
@@ -582,6 +588,10 @@ The agent automatically picks the right expert based on your request — or you 
 > "Remove the content creator"
 
 Install more experts from the [agent catalog](https://github.com/freddy-schuetz/n8n-claw-agents) or ask the community to contribute new ones.
+
+**100+ more experts available** from the [agent catalog](https://github.com/freddy-schuetz/n8n-claw-agents) across 12 categories: Analytics, Communications, Creative, Development, Education, HR, Leisure, Marketing, Operations, Product, Research, and Sales.
+
+Many agents pair with MCP Skills for enhanced capabilities — for example, the Data Analyst works with Google Analytics, or the Code Reviewer integrates with GitHub.
 
 **Status updates:** During long-running expert tasks, the agent sends you Telegram progress updates so you know what's happening (e.g. "Starting research expert...").
 
@@ -1266,6 +1276,7 @@ The Claude Code node uses SSH to reach the CLI on the host. You need to create a
 - **Telegram** — messaging interface
 - **[SearXNG](https://docs.searxng.org)** — self-hosted meta search engine (no API key needed)
 - **[Crawl4AI](https://github.com/unclecode/crawl4ai)** — self-hosted web crawler, returns clean markdown (JS rendering)
+- **Email Bridge** — lightweight IMAP/SMTP REST API for email integration
 - **[Open-Meteo](https://open-meteo.com)** — free weather API (example MCP, no key needed)
 
 ---
