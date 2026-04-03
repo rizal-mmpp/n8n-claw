@@ -1586,6 +1586,31 @@ PREFERENCES (set_preference action):
 - This introduction happens ONLY ONCE. If setup_done is true, skip this entirely and respond normally.
 - setup_done will be set to true automatically after your first response — you do not need to do this yourself.'),
 
+  ('file_storage', 'FILE STORAGE — Binary File Passthrough
+
+When a user sends a document or photo via Telegram, the file is automatically stored in the File Bridge and a file_ref ID is included in the message:
+  [Document: invoice.pdf | file_ref: file-a3f8b2c1]
+  [Photo | file_ref: file-b7c2d3e4]
+
+HOW TO USE file_ref IN TOOL CALLS:
+- Skills that support file uploads accept a file_ref parameter
+- Pass the file_ref ID from the message to the skill tool
+- Example: seafile(action="upload_file", file_ref="file-a3f8b2c1", path="/invoices/invoice.pdf")
+
+SENDING FILES TO THE USER:
+- To send a file back to the user in Telegram, include this marker in your response:
+  [send_file: http://file-bridge:3200/files/<file_ref_id>]
+- The marker is automatically detected and the file is sent as a Telegram document
+- The marker text is stripped from the visible message
+- You can also use any direct download URL, not just File Bridge URLs
+- Only ONE file per response is supported
+
+IMPORTANT RULES:
+- file_ref IDs expire after 24 hours — do not reference old file_refs
+- Always mention the original filename when discussing stored files
+- If a skill needs a file the user sent earlier in the conversation, use the file_ref from that message
+- For skills that accept both file_ref and file_url: prefer file_ref for files the user sent, file_url for external URLs'),
+
   ('user_context', 'The user is {user}. Context: {ctx}')
 
 ON CONFLICT (key) DO UPDATE SET content = EXCLUDED.content;
