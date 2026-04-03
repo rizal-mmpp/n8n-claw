@@ -173,6 +173,97 @@ app.delete('/cleanup', (req, res) => {
   res.json({ success: true, cleaned });
 });
 
+// ── POST /files/:id/forward — forward file to external service ─
+app.post('/files/:id/forward', async (req, res) => {
+  const meta = loadMeta(req.params.id);
+  if (!meta) return res.status(404).json({ error: 'File not found.' });
+
+  if (new Date(meta.expires_at) < new Date()) {
+    deleteFile(req.params.id);
+    return res.status(410).json({ error: 'File expired.' });
+  }
+
+  const fp = filePath(req.params.id);
+  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'File data missing.' });
+
+  const { url, headers, form_fields, filename, file_field } = req.body;
+  if (!url) return res.status(400).json({ error: 'url is required.' });
+
+  const fileBuffer = fs.readFileSync(fp);
+  const boundary = '----FileBridge' + crypto.randomBytes(8).toString('hex');
+  const fieldName = file_field || 'file';
+  const uploadName = filename || meta.file_name;
+
+  // Build multipart body
+  const parts = [];
+  if (form_fields && typeof form_fields === 'object') {
+    for (const [key, val] of Object.entries(form_fields)) {
+      parts.push(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${val}\r\n`
+      );
+    }
+  }
+  parts.push(
+    `--${boundary}\r\nContent-Disposition: form-data; name="${fieldName}"; filename="${uploadName}"\r\nContent-Type: ${meta.mime_type}\r\n\r\n`
+  );
+
+  const header = Buffer.from(parts.join(''), 'latin1');
+  const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'latin1');
+  const body = Buffer.concat([header, fileBuffer, footer]);
+
+  try {
+    const mod = url.startsWith('https') ? require('https') : require('http');
+    const parsed = new URL(url);
+    const reqHeaders = {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Length': body.length,
+      ...(headers || {})
+    };
+
+    const result = await new Promise((resolve, reject) => {
+      const fwdReq = mod.request({
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: reqHeaders
+      }, (resp) => {
+        const chunks = [];
+        resp.on('data', c => chunks.push(c));
+        resp.on('end', () => {
+          const responseBody = Buffer.concat(chunks).toString('utf8');
+          resolve({ statusCode: resp.statusCode, body: responseBody });
+        });
+      });
+      fwdReq.on('error', reject);
+      fwdReq.write(body);
+      fwdReq.end();
+    });
+
+    let parsed_body;
+    try { parsed_body = JSON.parse(result.body); } catch (e) { parsed_body = result.body; }
+
+    if (result.statusCode >= 400) {
+      return res.status(502).json({
+        error: 'Remote server returned ' + result.statusCode,
+        remote_status: result.statusCode,
+        remote_body: parsed_body
+      });
+    }
+
+    res.json({
+      success: true,
+      file_id: req.params.id,
+      file_name: uploadName,
+      size_bytes: fileBuffer.length,
+      remote_status: result.statusCode,
+      remote_response: parsed_body
+    });
+  } catch (err) {
+    res.status(502).json({ error: 'Forward failed: ' + err.message });
+  }
+});
+
 // ── GET /health — health check ────────────────────────────────
 app.get('/health', (req, res) => {
   const metaFiles = fs.readdirSync(META_DIR).filter(f => f.endsWith('.json'));
