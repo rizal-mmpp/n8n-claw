@@ -219,6 +219,14 @@ ask "N8N_API_KEY"        "n8n API Key (Settings → API → Create key)" "" 1
 ask "TELEGRAM_BOT_TOKEN" "Telegram Bot Token (from @BotFather)"      "" 1
 ask "TELEGRAM_CHAT_ID"   "Your Telegram Chat ID (from @userinfobot)" "" 0
 ask "ANTHROPIC_API_KEY"  "Anthropic API Key (from console.anthropic.com)" "" 1
+# OpenAI is optional — ask() enforces non-empty, so we prompt manually
+if [ -z "$OPENAI_API_KEY" ] || [[ "$OPENAI_API_KEY" == "your_"* ]]; then
+  read -rsp "  OpenAI API Key (optional — voice + embeddings, Enter to skip): " OPENAI_API_KEY_INPUT; echo
+  if [ -n "$OPENAI_API_KEY_INPUT" ]; then
+    OPENAI_API_KEY="$OPENAI_API_KEY_INPUT"
+    set_env OPENAI_API_KEY "$OPENAI_API_KEY"
+  fi
+fi
 echo ""
 echo -e "  ${YELLOW}Optional: Domain for HTTPS (required for Telegram webhooks)${NC}"
 echo "  Leave empty to skip (you can set up HTTPS later)"
@@ -540,7 +548,7 @@ if [ -n "$EXISTING_POSTGRES_ID" ]; then
   echo "  ✅ Supabase Postgres → ${POSTGRES_CRED_ID} (existing)"
 else
   # Postgres: try API first, then CLI import fallback
-  PG_DATA="{\"host\":\"db\",\"database\":\"postgres\",\"user\":\"postgres\",\"password\":\"${POSTGRES_PASSWORD}\",\"port\":5432,\"ssl\":\"disable\",\"allowUnauthorizedCerts\":true,\"sshTunnel\":false,\"sshAuthenticateWith\":\"password\"}"
+  PG_DATA="{\"host\":\"db\",\"database\":\"postgres\",\"user\":\"postgres\",\"password\":\"${POSTGRES_PASSWORD}\",\"port\":5432,\"ssl\":\"disable\",\"allowUnauthorizedCerts\":false,\"sshTunnel\":false,\"sshAuthenticateWith\":\"password\"}"
   POSTGRES_CRED_ID=$(create_cred "Supabase Postgres" "postgres" "$PG_DATA")
   if [ -z "$POSTGRES_CRED_ID" ]; then
     POSTGRES_CRED_ID=$(import_cred "Supabase Postgres" "postgres" "$PG_DATA")
