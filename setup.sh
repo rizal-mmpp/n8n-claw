@@ -281,7 +281,7 @@ if [ "$SKIP_LLM" = "false" ]; then
       if [ -z "$LLM_API_KEY" ] || [[ "$LLM_API_KEY" == "your_"* ]]; then
         ask "LLM_API_KEY" "OpenRouter API Key (from openrouter.ai/keys)" "" 1
       fi
-      LLM_MODEL="${LLM_MODEL:-anthropic/claude-sonnet-4-6}"
+      LLM_MODEL="${LLM_MODEL:-anthropic/claude-sonnet-4.6}"
       ;;
     ollama)
       if [ -z "$LLM_BASE_URL" ] || [[ "$LLM_BASE_URL" == "your_"* ]]; then
