@@ -956,17 +956,20 @@ for node in wf.get('nodes', []):
 if renames:
     conns = wf.get('connections', {})
     updated_conns = {}
-    for src, outputs in conns.items():
+    for src, type_dict in conns.items():
         new_src = renames.get(src, src)
-        new_outputs = []
-        for output_group in outputs:
-            new_group = []
-            for conn in output_group:
-                if conn.get('node') in renames:
-                    conn = dict(conn, node=renames[conn['node']])
-                new_group.append(conn)
-            new_outputs.append(new_group)
-        updated_conns[new_src] = new_outputs
+        new_type_dict = {}
+        for conn_type, output_groups in type_dict.items():
+            new_groups = []
+            for group in output_groups:
+                new_group = []
+                for conn in group:
+                    if isinstance(conn, dict) and conn.get('node') in renames:
+                        conn = dict(conn, node=renames[conn['node']])
+                    new_group.append(conn)
+                new_groups.append(new_group)
+            new_type_dict[conn_type] = new_groups
+        updated_conns[new_src] = new_type_dict
     wf['connections'] = updated_conns
 if changed:
     with open(f, 'w') as fh:
