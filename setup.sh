@@ -307,7 +307,7 @@ if [ "$SKIP_LLM" = "false" ]; then
       if [ -z "$LLM_API_KEY" ] || [[ "$LLM_API_KEY" == "your_"* ]]; then
         ask "LLM_API_KEY" "Google Gemini API Key (from aistudio.google.com)" "" 1
       fi
-      LLM_MODEL="${LLM_MODEL:-models/gemini-2.5-flash}"
+      LLM_MODEL="${LLM_MODEL:-gemini-3-flash-preview}"
       ;;
     openai_compatible)
       if [ -z "$LLM_BASE_URL" ] || [[ "$LLM_BASE_URL" == "your_"* ]]; then
@@ -1632,7 +1632,7 @@ if [ "$INSTALL_MODE" = "update" ] && [ "$FORCE_FLAG" != "--force" ] && [ -z "${E
     openrouter)       LLM_ENDPOINT="https://openrouter.ai/api/v1/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY}"; LLM_DB_MODEL="${LLM_MODEL}" ;;
     ollama)           LLM_ENDPOINT="${LLM_BASE_URL:-http://172.17.0.1:11434}/v1/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY:-ollama}"; LLM_DB_MODEL="${LLM_MODEL:-llama3.2}" ;;
     deepseek)         LLM_ENDPOINT="https://api.deepseek.com/v1/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY}"; LLM_DB_MODEL="${LLM_MODEL:-deepseek-chat}" ;;
-    gemini)           LLM_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY}"; LLM_DB_MODEL="${LLM_MODEL:-models/gemini-2.5-flash}" ;;
+    gemini)           LLM_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY}"; LLM_DB_MODEL="${LLM_MODEL:-gemini-3-flash-preview}" ;;
     openai_compatible) LLM_ENDPOINT="${LLM_BASE_URL}/chat/completions"; LLM_PROVIDER_FAMILY="openai_compatible"; LLM_DB_KEY="${LLM_API_KEY:-not-needed}"; LLM_DB_MODEL="${LLM_MODEL}" ;;
   esac
   if [ -n "$LLM_DB_KEY" ]; then
@@ -1877,7 +1877,7 @@ case "$LLM_PROVIDER_DB" in
     LLM_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     LLM_PROVIDER_FAMILY="openai_compatible"
     LLM_DB_KEY="${LLM_API_KEY}"
-    LLM_DB_MODEL="${LLM_MODEL:-models/gemini-2.5-flash}"
+    LLM_DB_MODEL="${LLM_MODEL:-gemini-3-flash-preview}"
     ;;
   openai_compatible)
     LLM_ENDPOINT="${LLM_BASE_URL}/chat/completions"
