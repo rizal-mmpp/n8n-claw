@@ -10,7 +10,7 @@ It gives you persistent context about this project so you don't have to repeat y
 A self-hosted AI agent system built on:
 - **n8n** (workflow automation) — the execution engine for all agent logic
 - **PostgreSQL + PostgREST** — memory, configuration, conversation history
-- **Claude** (Anthropic) — the LLM powering the agent
+- **LLM** (default: Claude/Anthropic, configurable: OpenAI, OpenRouter, Ollama, DeepSeek, Gemini, etc.)
 - **Telegram** — messaging interface
 
 The agent lives in n8n workflows. There is no custom application code — everything runs as n8n nodes connected in workflows.
@@ -180,10 +180,10 @@ The agent can install pre-built capabilities ("Skills") from a catalog. The syst
 
 #### Templates Repo (local clone)
 
-The templates repo is cloned alongside this repo:
+The templates repo is embedded as a subdirectory (separate Git repo):
 
 ```
-../n8n-claw-templates/        # sibling directory (same parent as n8n-claw)
+n8n-claw-templates/           # subdirectory (own Git remote)
 ├── templates/
 │   ├── index.json             # central catalog — must list every template
 │   ├── TEMPLATE_EXAMPLE.md    # reference for creating new templates
@@ -233,19 +233,19 @@ The agent can delegate specialized tasks to expert sub-agents. The main agent's 
 
 ## Embedded Repos (n8n-claw-agents, n8n-claw-templates)
 
-`n8n-claw-agents/` and `../n8n-claw-templates/` are **separate Git repositories** with their own remotes, NOT part of the n8n-claw repo. They are embedded as subdirectories (n8n-claw-agents inside n8n-claw, n8n-claw-templates as sibling).
+`n8n-claw-agents/` and `n8n-claw-templates/` are **separate Git repositories** with their own remotes, NOT part of the n8n-claw repo. Both live as subdirectories inside n8n-claw.
 
 **How to commit and push changes:**
 
 ```bash
-# n8n-claw-agents — lives INSIDE n8n-claw as subdirectory
+# n8n-claw-agents
 cd n8n-claw/n8n-claw-agents/
 git add <files>
 git commit -m "message"
 git push origin master          # default branch: master
 
-# n8n-claw-templates — lives as SIBLING directory
-cd ../n8n-claw-templates/
+# n8n-claw-templates
+cd n8n-claw/n8n-claw-templates/
 git add <files>
 git commit -m "message"
 git push origin master          # default branch: master
@@ -307,9 +307,11 @@ Hardcoded workflow IDs in the agent use `REPLACE_*` placeholders:
 ### Credential names (must be exact)
 
 n8n matches credentials by name. These names are hardcoded in the workflows:
-- `Anthropic API`
+- `Anthropic API` (default LLM — or provider-specific name if using another provider)
 - `Telegram Bot`
 - `Supabase Postgres`
+
+**LLM Provider Support:** setup.sh creates the correct credential for the chosen provider (Anthropic, OpenAI, OpenRouter, Ollama, DeepSeek, Gemini, or custom OpenAI-compatible). Workflow nodes ship with Anthropic — users swap the LLM node in the n8n UI if using another provider. Memory Consolidation reads provider config from `tools_config.llm_provider` at runtime.
 
 ---
 

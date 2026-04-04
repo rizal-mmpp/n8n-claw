@@ -115,7 +115,7 @@ Internal Services:
 - A Linux VPS (Ubuntu 22.04/24.04 recommended, also tested with Debian 13, 4GB RAM and 15GB Disk minimum)
 - A **Telegram Bot** — create one via [@BotFather](https://t.me/BotFather)
 - Your **Telegram Chat ID** — get it from [@userinfobot](https://t.me/userinfobot)
-- An **Anthropic API Key** — from [console.anthropic.com](https://console.anthropic.com)
+- An **LLM API Key** — setup lets you choose: Anthropic (default), OpenAI, OpenRouter, DeepSeek, Google Gemini, or Ollama (local, no key needed)
 - A **domain name** (optional but recommended, required for Telegram HTTPS webhooks)
 
 ### Step 1 — Clone & run
@@ -161,7 +161,7 @@ The easiest way is to open each workflow and click **"Create new credential"** d
 | Credential | Name (exact!) | Where needed |
 |---|---|---|
 | Postgres | `Supabase Postgres` | Agent, Sub-Agent Runner |
-| Anthropic API | `Anthropic API` | Agent (Claude node), MCP Builder, Sub-Agent Runner |
+| LLM Provider | `Anthropic API` (default) | Agent (LLM node), MCP Builder, Sub-Agent Runner — *setup creates the credential for your chosen provider* |
 | Telegram Bot | `Telegram Bot` | Agent (Telegram Trigger + Reply) — *created automatically by setup* |
 | OpenAI API | `OpenAI API` | Agent (Voice transcription via Whisper) — *optional, created by setup if key provided* |
 | Webhook Auth | `Webhook Auth` | Agent + Adapter (Webhook Triggers) — *created automatically by setup* |
