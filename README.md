@@ -115,7 +115,7 @@ Internal Services:
 - A Linux VPS (Ubuntu 22.04/24.04 recommended, also tested with Debian 13, 4GB RAM and 15GB Disk minimum)
 - A **Telegram Bot** — create one via [@BotFather](https://t.me/BotFather)
 - Your **Telegram Chat ID** — get it from [@userinfobot](https://t.me/userinfobot)
-- An **LLM API Key** — setup lets you choose: Anthropic (default), OpenAI, OpenRouter, DeepSeek, Google Gemini, or Ollama (local, no key needed)
+- An **LLM API Key** — setup lets you choose: Anthropic (default), OpenAI, OpenRouter, DeepSeek, Google Gemini, Mistral, or Ollama (local, no key needed)
 - A **domain name** (optional but recommended, required for Telegram HTTPS webhooks)
 
 ### Step 1 — Clone & run
@@ -133,7 +133,7 @@ The script will:
    - n8n API Key *(generated in n8n UI → Settings → API)*
    - Telegram Bot Token
    - Telegram Chat ID
-   - Anthropic API Key
+   - LLM API Key *(choose your provider: Anthropic, OpenAI, OpenRouter, DeepSeek, Gemini, Mistral, Ollama, or OpenAI-compatible)*
    - Domain name *(optional — enables HTTPS via Let's Encrypt + nginx, or skip nginx if you already have a reverse proxy)*
 5. **Configure your agent's personality**:
    - Agent name
@@ -161,7 +161,7 @@ The easiest way is to open each workflow and click **"Create new credential"** d
 | Credential | Name (exact!) | Where needed |
 |---|---|---|
 | Postgres | `Supabase Postgres` | Agent, Sub-Agent Runner |
-| LLM Provider | `Anthropic API` (default) | Agent (LLM node), MCP Builder, Sub-Agent Runner — *setup creates the credential for your chosen provider* |
+| LLM Provider | *depends on provider* | Agent (LLM node), MCP Builder, Sub-Agent Runner — *setup creates the credential and patches all LLM nodes automatically* |
 | Telegram Bot | `Telegram Bot` | Agent (Telegram Trigger + Reply) — *created automatically by setup* |
 | OpenAI API | `OpenAI API` | Agent (Voice transcription via Whisper) — *optional, created by setup if key provided* |
 | Webhook Auth | `Webhook Auth` | Agent + Adapter (Webhook Triggers) — *created automatically by setup* |
@@ -170,15 +170,15 @@ The easiest way is to open each workflow and click **"Create new credential"** d
 
 | Workflow | Credentials to connect |
 |---|---|
-| n8n-claw Agent | Postgres, Anthropic API, OpenAI API (optional) |
-| MCP Builder | Anthropic API (select on LLM node) |
-| Sub-Agent Runner | Postgres, Anthropic API |
+| n8n-claw Agent | Postgres, LLM Provider, OpenAI API (optional, for voice) |
+| MCP Builder | LLM Provider (select on LLM node) |
+| Sub-Agent Runner | Postgres, LLM Provider |
 
 **After update (`./setup.sh`)** — credentials persist in the Agent and MCP Builder, but must be re-selected in:
 
 | Workflow | Credentials to re-connect |
 |---|---|
-| Sub-Agent Runner | Postgres, Anthropic API |
+| Sub-Agent Runner | Postgres, LLM Provider |
 
 **Postgres connection details** *(shown in setup output)*:
 - Host: `db` | Port: `5432` | DB: `postgres` | User: `postgres`
@@ -928,7 +928,7 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 | `reminders` | Scheduled reminders + one-time tasks (message, time, type, delivery status) |
 | `scheduled_actions` | Recurring actions (schedule, instruction, notify_mode, next_run) |
 | `heartbeat_config` | Heartbeat + morning briefing settings (enabled, last_run, intervals) |
-| `tools_config` | API keys for Anthropic, embedding provider — used by Heartbeat + Consolidation |
+| `tools_config` | LLM provider config, embedding provider — used by Heartbeat + Memory Consolidation |
 | `mcp_registry` | Available MCP servers (name, URL, tools) |
 | `template_credentials` | API keys for MCP templates (entered via credential form) |
 | `credential_tokens` | One-time tokens for secure credential entry (10 min TTL) |
@@ -943,39 +943,43 @@ Edit the `soul` and `agents` tables directly in Supabase Studio (`http://localho
 <details>
 <summary>
 
-## Alternative LLM Providers
+## Supported LLM Providers
 
 </summary>
 
-n8n-claw is built for Claude (Anthropic) but works with **any OpenAI-compatible LLM** — including llama.cpp, Ollama, LM Studio, vLLM, OpenRouter, or any provider that exposes an OpenAI-compatible API endpoint.
+n8n-claw is fully model-agnostic. During setup, you choose your LLM provider and **all workflows are automatically configured** — no manual node swapping needed.
 
-### How to switch
+### Available providers
 
-Replace the Anthropic LLM node in these workflows with an **OpenAI Chat Model** node:
+| Provider | Default Model | Credential Name | Notes |
+|---|---|---|---|
+| Anthropic (default) | `claude-sonnet-4-6` | `Anthropic API` | |
+| OpenAI | `gpt-5.4` | `OpenAI API` | |
+| OpenRouter | `anthropic/claude-sonnet-4-6` | `OpenRouter API` | Access any model via unified API |
+| DeepSeek | `deepseek-chat` | `DeepSeek API` | |
+| Google Gemini | `gemini-3-flash-preview` | `Google Gemini API` | |
+| Mistral | `mistral-large-latest` | `Mistral API` | |
+| Ollama | `glm-4.7-flash` | `Ollama` | Local, no API key needed |
+| OpenAI-compatible | *(your choice)* | `LLM API` | Any endpoint with OpenAI-compatible API |
 
-| Workflow | Node to replace | Default model |
-|---|---|---|
-| n8n-claw Agent | "Claude" (LLM sub-node) | Claude Sonnet |
-| MCP Builder | "Anthropic Chat Model" (2 nodes) | Claude Opus |
-| Sub-Agent Runner | "Claude" (LLM sub-node) | Claude Sonnet |
+### How it works
 
-**Steps:**
+`setup.sh` automatically patches all LLM nodes in every workflow to match your chosen provider before importing them into n8n. This includes:
+- **n8n-claw Agent** — main LLM node
+- **MCP Builder** — code generation LLM nodes
+- **Sub-Agent Runner** — expert agent LLM node
+- **Background Checker** — monitoring LLM node
 
-1. Open the workflow in n8n
-2. Delete the existing Anthropic LLM node (the one connected to the AI Agent node)
-3. Add an **OpenAI Chat Model** node and connect it in the same position
-4. In the OpenAI node settings:
-   - Set **Base URL** to your local endpoint (e.g. `http://localhost:8080/v1` for llama.cpp, `http://localhost:11434/v1` for Ollama)
-   - Select your model
-   - **Disable Responses API** (toggle off — important for local models)
-5. Create an OpenAI credential with your endpoint URL and API key (use any string for local models that don't require auth)
+**Heartbeat** and **Memory Consolidation** read the LLM provider config from the `tools_config` database table at runtime — these also work with any provider.
 
-### Known limitations
+### Switching providers
 
-- **Heartbeat** and **Memory Consolidation** workflows currently use hardcoded Anthropic API calls in JavaScript code nodes. These won't work with alternative providers yet — deactivate them if you're running without an Anthropic key. Provider abstraction for these workflows is on the roadmap.
-- **setup.sh** still requires an Anthropic API key during setup (the prompt doesn't accept empty input). Enter any placeholder value (e.g. `sk-dummy`) if you only use local models — the key is only used by Heartbeat and Memory Consolidation (which you should deactivate in that case).
-- **MCP Builder** uses Claude Opus for code generation. Results may vary with smaller local models.
-- Some local models may prefix tool call JSON with extra text (emojis, descriptions). This was fixed in [#13](https://github.com/freddy-schuetz/n8n-claw/issues/13) — make sure you're on the latest version.
+Re-run `./setup.sh --force` and choose a different provider when prompted. All workflows will be re-imported with the new LLM nodes and credentials.
+
+### Known considerations
+
+- **MCP Builder** uses your chosen model for code generation. Stronger models (Claude Opus, GPT-5.4) produce better results than smaller ones.
+- Some local models may prefix tool call JSON with extra text. This was fixed in [#13](https://github.com/freddy-schuetz/n8n-claw/issues/13) — make sure you're on the latest version.
 
 ### Community-tested providers
 
@@ -1181,7 +1185,7 @@ Use `--force` when you want to change your agent's name, language, communication
 → Add the Postgres credential manually (see Step 2)
 
 **MCP Builder fails?**
-→ Make sure the LLM node in MCP Builder has Anthropic API selected
+→ Make sure the LLM node in MCP Builder has your LLM provider credential selected
 
 **Agent shows wrong time?**
 → Re-run `./setup.sh --force` and set the correct timezone, or update it directly in `user_profiles` table via Supabase Studio
