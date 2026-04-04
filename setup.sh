@@ -1533,6 +1533,10 @@ fi  # end INSTALL_MODE guard for workflows
 # ── 12. Activate agent ───────────────────────────────────────
 AGENT_ID=${WF_IDS['n8n-claw-agent']}
 if [ -n "$AGENT_ID" ]; then
+  # Deactivate first (forces n8n to re-register Telegram webhook on activate)
+  curl -s -X POST "${N8N_BASE}/api/v1/workflows/${AGENT_ID}/deactivate" \
+    -H "X-N8N-API-KEY: ${N8N_API_KEY}" > /dev/null 2>&1
+  sleep 2
   for attempt in 1 2 3; do
     AGENT_ACTIVATE=$(curl -s -X POST "${N8N_BASE}/api/v1/workflows/${AGENT_ID}/activate" \
       -H "X-N8N-API-KEY: ${N8N_API_KEY}")
