@@ -118,7 +118,7 @@ Internal Services:
 - Your **Telegram Chat ID** — send any message to [@userinfobot](https://t.me/userinfobot) and it replies with your numeric ID
 - An **LLM API Key** — setup lets you choose your provider:
   - [Anthropic](https://console.anthropic.com/settings/keys) (default) · [OpenAI](https://platform.openai.com/api-keys) · [OpenRouter](https://openrouter.ai/keys) · [DeepSeek](https://platform.deepseek.com/api_keys) · [Google Gemini](https://aistudio.google.com/apikey) · [Mistral](https://console.mistral.ai/api-keys) · Ollama (local, no key needed) · any OpenAI-compatible endpoint
-- A **domain name** (optional but recommended, required for Telegram HTTPS webhooks). No domain? You can use [sslip.io](https://sslip.io) — it turns your IP into a domain automatically (e.g. `n8n.123.45.67.89.sslip.io`), no DNS setup needed
+- A **domain name** (required for Telegram HTTPS webhooks). No domain? You can use [sslip.io](https://sslip.io) — it turns your IP into a domain automatically (e.g. your server has IP `123.45.67.89`, type `123-45-67-89.sslip.io`), no DNS setup needed
 
 ### Step 1 — Clone & run
 
@@ -131,7 +131,7 @@ The script installs everything automatically. It will ask you for:
 - **n8n API Key** — generated in the n8n UI that opens during setup *(Settings → API)*
 - **Telegram Bot Token** + **Chat ID**
 - **LLM API Key** — choose your provider (Anthropic, OpenAI, OpenRouter, DeepSeek, Gemini, Mistral, Ollama, or OpenAI-compatible)
-- **Domain name** *(optional — enables HTTPS via Let's Encrypt. Use [sslip.io](https://sslip.io) if you don't have one)*
+- **Domain name** *(enables HTTPS via Let's Encrypt. Use [sslip.io](https://sslip.io) if you don't have one)*
 - **Agent personality** — name, language, communication style, custom persona
 
 After that, setup handles everything else: Docker, database, credentials, workflows, activation.
