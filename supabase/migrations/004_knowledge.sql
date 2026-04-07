@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_memory_long_tags
 -- Erweiterte Suchfunktion: search_memory
 -- DROP nötig weil sich der Return-Type ändert (3 neue Spalten)
 DROP FUNCTION IF EXISTS public.search_memory(public.vector, double precision, integer, text);
+DROP FUNCTION IF EXISTS public.search_memory(public.vector, double precision, integer, text, text, text[]);
 
 CREATE FUNCTION public.search_memory(
   query_embedding public.vector,
@@ -85,6 +86,7 @@ GRANT ALL ON FUNCTION public.search_memory(public.vector, double precision, inte
 
 -- Erweiterte Suchfunktion: search_memory_keyword
 DROP FUNCTION IF EXISTS public.search_memory_keyword(text, integer);
+DROP FUNCTION IF EXISTS public.search_memory_keyword(text, integer, text, text[]);
 
 CREATE FUNCTION public.search_memory_keyword(
   search_query text,
