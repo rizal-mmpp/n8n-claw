@@ -310,7 +310,7 @@
       "main": [
         [
           {
-            "node": "Prepare Save",
+            "node": "Save Conversation and Log",
             "type": "main",
             "index": 0
           }
@@ -455,19 +455,9 @@
         ]
       ]
     },
-    "Prepare Save": {
+    "Save Conversation and Log": {
       "main": [
         [
-          {
-            "node": "Save Conversation",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Save Daily Log",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Response Router",
             "type": "main",
@@ -1266,62 +1256,16 @@
     },
     {
       "parameters": {
-        "jsCode": "// Save conversation to Supabase\nconst bsp = $('Build System Prompt').first().json;\nconst userMessage = bsp.userMessage;\nconst assistantMessage = $('AI Agent').first().json.output;\nconst sessionId = bsp.sessionId;\nconst userId = bsp.userId;\nconst qualifiedUserId = bsp.qualifiedUserId;\nconst source = bsp.source || 'telegram';\nconst _webhookSource = bsp._webhookSource || false;\nconst metadata = bsp.metadata || {};\n\n// Mark onboarding as done after first response\nconst setupDone = $('Load User Profile').first()?.json?.setup_done;\nconst markSetupDone = setupDone === false;\n\n// Escape $ followed by digits — pg-promise interprets $N as parameter placeholders\nfunction pgSafe(s) { return (s || '').replace(/\\$/g, () => '$$'); }\n\nreturn [{\n  json: {\n    userMessage: pgSafe(userMessage),\n    assistantMessage: pgSafe(assistantMessage),\n    sessionId,\n    userId,\n    qualifiedUserId,\n    source,\n    _webhookSource,\n    metadata,\n    markSetupDone\n  }\n}];"
+        "jsCode": "// Save conversation + daily log via PostgREST (avoids pg-promise $N escaping bug)\nconst bsp = $('Build System Prompt').first().json;\nconst userMessage = bsp.userMessage;\nconst assistantMessage = $('AI Agent').first().json.output;\nconst sessionId = bsp.sessionId;\nconst userId = bsp.userId;\nconst qualifiedUserId = bsp.qualifiedUserId;\nconst source = bsp.source || 'telegram';\nconst _webhookSource = bsp._webhookSource || false;\nconst metadata = bsp.metadata || {};\n\nconst SUPABASE_URL = '{{SUPABASE_URL}}';\nconst SUPABASE_KEY = '{{SUPABASE_SERVICE_KEY}}';\nconst headers = { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };\n\n// Save user + assistant messages\nawait helpers.httpRequest({ method: 'POST', url: `${SUPABASE_URL}/rest/v1/conversations`, headers, body: JSON.stringify({ session_id: sessionId, user_id: userId, role: 'user', content: userMessage }) });\nawait helpers.httpRequest({ method: 'POST', url: `${SUPABASE_URL}/rest/v1/conversations`, headers, body: JSON.stringify({ session_id: sessionId, user_id: userId, role: 'assistant', content: assistantMessage }) });\n\n// Save daily log\nawait helpers.httpRequest({ method: 'POST', url: `${SUPABASE_URL}/rest/v1/memory_daily`, headers, body: JSON.stringify({ date: new Date().toISOString().split('T')[0], content: userMessage + ' → ' + assistantMessage, role: 'interaction', user_id: userId }) });\n\n// Mark onboarding done if needed\nconst setupDone = $('Load User Profile').first()?.json?.setup_done;\nif (setupDone === false) {\n  await helpers.httpRequest({ method: 'PATCH', url: `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(qualifiedUserId)}`, headers, body: JSON.stringify({ setup_done: true }) });\n}\n\nreturn [{ json: { saved: true, sessionId, _webhookSource, metadata } }];"
       },
       "id": "prepare-save",
-      "name": "Prepare Save",
+      "name": "Save Conversation and Log",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         3680,
         -16
       ]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO conversations (session_id, user_id, role, content) VALUES ('{{ $json.sessionId }}', '{{ $json.userId }}', 'user', '{{ $json.userMessage.replace(/'/g, \"''\").replace(/\\$/g, '$$') }}'); INSERT INTO conversations (session_id, user_id, role, content) VALUES ('{{ $json.sessionId }}', '{{ $json.userId }}', 'assistant', '{{ $json.assistantMessage.replace(/'/g, \"''\").replace(/\\$/g, '$$') }}'); {{ $json.markSetupDone ? \"UPDATE user_profiles SET setup_done = true WHERE user_id = '\" + $json.qualifiedUserId + \"';\" : '' }}",
-        "options": {
-          "queryBatching": "independently"
-        }
-      },
-      "id": "save-conversation",
-      "name": "Save Conversation",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        3904,
-        -208
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "Supabase Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO memory_daily (date, content, role, user_id) VALUES (CURRENT_DATE, '{{ ($json.userMessage + ' → ' + $json.assistantMessage).replace(/'/g, \"''\").replace(/\\$/g, '$$') }}', 'interaction', '{{ $json.userId }}')",
-        "options": {
-          "queryBatching": "independently"
-        }
-      },
-      "id": "save-daily-log",
-      "name": "Save Daily Log",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        3904,
-        176
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "Supabase Postgres"
-        }
-      }
     },
     {
       "id": "split-long-message",
