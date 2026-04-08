@@ -5,6 +5,42 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.1.1] — 2026-04-08
+
+### Bugfixes, Config Backup Skill Update, and Google Media Generation
+
+Follow-up to v1.1.0 that closes two data-loss gaps discovered after release and ships the new Google Media Generation skill, a matching expert agent, and several template catalog improvements that landed between releases.
+
+### Fixed
+- **`config-backup` skill lost Knowledge System data** — the backup skill shipped in v1.1.0 did not know about the new enriched memory columns (`tags`, `entity_name`, `source`) or the `kg_entities` / `kg_relations` tables. Backups taken with the old skill silently dropped everything the v1.1.0 Knowledge System introduced. The skill is now bumped to `1.1.0` and saves:
+  - `memory_long.tags`, `memory_long.entity_name`, `memory_long.source`
+  - full `kg_entities` table (with UUID primary keys so relations can be restored)
+  - full `kg_relations` table, ordered after `kg_entities` so foreign keys resolve on restore
+  - backup format version bumped to `1.1` (old `1.0` backups remain restore-compatible)
+- **`soul.proactive` silently wiped on `setup.sh --force`** — when a custom persona was set, the personalization block explicitly cleared the `PROACTIVE` variable before writing the `soul` table. The proactive/reactive choice from the setup menu was therefore discarded on every re-deploy, leaving the agent without any proactive-behavior instruction in its system prompt. Custom persona (tone/role) and proactive behavior (initiative style) are now treated as independent settings.
+- **`google-media-gen` video generation timeout** — long-running Veo 3.1 video jobs exceeded the MCP tool-call timeout. Video generation is now split into a `generate_video` call that starts the job and a separate `wait_for_video` call that polls for completion.
+
+### Added
+- **New skill: Google Media Generation** — Nano Banana Pro for image generation/editing and Veo 3.1 for video generation and image-to-video animation. Tools: `generate_image`, `edit_image`, `generate_video`, `animate_image`, `wait_for_video`.
+- **New expert agent: `google-media-prompter`** — specialized sub-agent for prompt engineering around Google's generative media models. Install via the Agent Library.
+- **New category: `creativity`** — template catalog gained a dedicated category for generative media and creative tooling. `google-media-gen` moved out of `utilities`.
+- **Tested column in skill catalog** — `n8n-claw-templates/README.md` now shows which skills have been smoke-tested on a live instance.
+- **Keep-current for proactive setting** — `setup.sh --force` now reads the existing `soul.proactive` content from the DB and offers "Choose [keep current]" as the default, so manual DB edits to that row survive re-runs.
+- **Custom → preset reset** — the custom persona prompt now accepts `reset` as an explicit way to drop the current custom persona and fall back to the preset selected via the Style menu. Previously there was no path from a custom persona back to a preset without direct DB editing.
+
+### Upgrade from v1.1.0
+```bash
+cd n8n-claw && git pull && ./setup.sh --force
+```
+Then update the affected skills via chat:
+- `update config-backup` — required to back up Knowledge System data
+- `install google-media-gen` — optional, if you want Nano Banana / Veo 3.1
+- `install agent google-media-prompter` — optional, expert prompter for the above
+
+If your `soul.proactive` row was wiped by the old bug, re-running `setup.sh --force` and keeping the default choice will seed it with the proactive-behavior text.
+
+---
+
 ## [1.1.0] — 2026-04-07
 
 ### Knowledge System & Bug Fixes
