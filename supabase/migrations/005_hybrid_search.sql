@@ -189,8 +189,8 @@ BEGIN
     f.tags,
     f.entity_name,
     f.source,
-    fused.rrf_score * decay.factor AS rrf_score,
-    decay.factor AS decay_factor
+    (fused.rrf_score * decay.factor)::double precision AS rrf_score,
+    decay.factor::double precision AS decay_factor
   FROM fused
   JOIN filtered f ON f.id = fused.id
   CROSS JOIN LATERAL (
