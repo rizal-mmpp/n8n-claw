@@ -5,6 +5,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.2.0] — 2026-04-09
+
+### Hybrid Memory Search, Time Decay & Multi-Language
+
+Memory retrieval upgraded from pure semantic search to three-branch hybrid search with Reciprocal Rank Fusion (RRF). The agent now finds people by name, survives embedding API outages, and naturally prefers recent context.
+
+### Added
+- **Hybrid Search RPC** (`hybrid_search_memory`) — fuses three independent search branches via RRF (k=60, Cormack standard):
+  - **Semantic** — pgvector cosine distance (unchanged from v1.1)
+  - **Full-text** — tsvector with `ts_rank_cd` cover-density ranking (replaces primitive ILIKE fallback)
+  - **Entity match** — direct ILIKE on `entity_name` for proper-noun boost
+- **Time Decay** — exponential half-life scoring scaled by importance (`half_life = 90 + importance * 20` days, range 110–290d). Category exemption for `contact`/`preference`/`decision` (decay factor always 1.0). Enabled by default, opt-out via `use_time_decay=false`.
+- **Multi-language full-text** — `unaccent` extension + `'simple'` tsvector config normalizes accents and umlauts across all languages (e.g. `München` matches `muenchen`, `résumé` matches `resume`)
+- **GENERATED STORED column** `search_vector` on `memory_long` — auto-maintained by Postgres, no changes to INSERT/UPDATE workflows needed
+- New migration: `supabase/migrations/005_hybrid_search.sql`
+
+### Changed
+- **Memory Search tool** now always calls `hybrid_search_memory` (single RPC, handles embedding-null gracefully via branch degradation). Old two-branch if/else removed.
+
+### Breaking Changes
+None. Old RPCs `search_memory` and `search_memory_keyword` remain in the database. Config-backup skill works unchanged (explicit column list, generated column auto-populates on restore).
+
+### Upgrade from v1.1.1
+```bash
+cd n8n-claw && git pull && ./setup.sh --force
+```
+No skill updates needed. The migration runs automatically and backfills `search_vector` for all existing memories.
+
+---
+
 ## [1.1.1] — 2026-04-08
 
 ### Bugfixes, Config Backup Skill Update, and Google Media Generation

@@ -47,7 +47,7 @@ Talk to your agent in natural language — it manages tasks, remembers context a
 
 - **Telegram chat** — talk to your AI agent directly via Telegram
 - **Webhook API** — call the agent from any external system via HTTP (Slack, Teams, Paperclip, custom apps)
-- **Enriched long-term memory** — semantic search with tags, entity tracking, source attribution, and category-based auto-expiry
+- **Enriched long-term memory** — hybrid search (semantic + full-text + entity match, fused via RRF) with time decay, tags, entity tracking, source attribution, and category-based auto-expiry. Finds people by name, survives embedding API outages, naturally prefers recent context.
 - **Knowledge graph** — automatically tracks people, companies, products, and events; multi-hop graph traversal reveals how everything connects
 - **Task management** — create, track, and complete tasks with priorities and due dates
 - **Proactive heartbeat** — automatically reminds you of overdue/urgent tasks
@@ -725,7 +725,15 @@ The agent has a multi-layered memory system — it remembers things you tell it 
 > "Remember that I prefer morning meetings before 10am"
 > "Remember that I take my coffee black"
 
-**Memory search:** When relevant, the agent searches its memory to give you contextual answers. With an embedding API key (configured during setup), it uses semantic search — finding memories by meaning, not just keywords.
+**Memory search:** When relevant, the agent searches its memory to give you contextual answers. It uses **hybrid search** — three independent search strategies fused via Reciprocal Rank Fusion (RRF):
+
+- **Semantic search** — finds memories by meaning using vector embeddings (requires an embedding API key, configured during setup)
+- **Full-text search** — matches exact words with accent/umlaut normalization (`München` matches `muenchen`)
+- **Entity match** — boosts memories linked to the person, company, or project you're asking about
+
+If the embedding API is temporarily unavailable, the agent gracefully falls back to full-text + entity search — no silent failures.
+
+**Time decay** gives recent memories a natural edge. Old memories aren't deleted, but newer ones rank higher when competing for the same query. Category exemptions ensure contacts, preferences, and decisions never decay.
 
 > "What do you know about my coffee preferences?"
 > "What did we discuss about the server migration?"

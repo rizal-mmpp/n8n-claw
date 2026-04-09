@@ -558,6 +558,16 @@ if [ -n "$KNOWLEDGE_ERRORS" ]; then
 fi
 echo "  ✅ Knowledge system tables applied"
 
+echo "  Applying Hybrid Search migration..."
+HYBRID_OUTPUT=$(LANG=C LC_ALL=C PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U postgres -d postgres \
+  -f supabase/migrations/005_hybrid_search.sql 2>&1)
+HYBRID_ERRORS=$(echo "$HYBRID_OUTPUT" | grep -i "error" | head -5)
+if [ -n "$HYBRID_ERRORS" ]; then
+  echo -e "  ${YELLOW}⚠️  Hybrid search migration warnings:${NC}"
+  echo "$HYBRID_ERRORS" | while read line; do echo "    $line"; done
+fi
+echo "  ✅ Hybrid search applied"
+
 # Reload PostgREST schema cache so new tables are immediately available via API
 docker kill --signal=SIGUSR1 $(docker ps -q --filter name=rest) 2>/dev/null || true
 
