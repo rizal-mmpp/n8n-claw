@@ -5,6 +5,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.2.1] — 2026-04-10
+
+### Token Optimization
+
+Reduces main agent system prompt token usage by ~25% through fixing a persona data leak.
+
+### Changed
+- **Persona loading optimized** — full persona bodies no longer loaded into main system prompt; agent sees only the compact `expert_agents` meta-listing. Sub-Agent Runner loads full personas separately on delegation. Saves ~3,700 tokens per request.
+- **setup.sh seed fix** — `expert_agents` seed changed from `ON CONFLICT DO UPDATE` to `ON CONFLICT DO NOTHING`, preventing `setup.sh --force` from overwriting dynamically maintained expert agent metadata.
+
+### Upgrade from v1.2.0
+```bash
+cd n8n-claw && git pull && ./setup.sh --force
+```
+No additional steps needed.
+
+---
+
 ## [1.2.0] — 2026-04-09
 
 ### Hybrid Memory Search, Time Decay & Multi-Language
