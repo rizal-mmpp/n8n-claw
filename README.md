@@ -53,6 +53,7 @@ Talk to your agent in natural language — it manages tasks, remembers context a
 - **Proactive heartbeat** — automatically reminds you of overdue/urgent tasks
 - **Recurring actions** — repeating tasks on any schedule ("check my emails every 15 minutes", "daily briefing at 8am")
 - **Smart background checks** — monitoring tasks only notify you when something new is found
+- **Failure awareness** — workflow errors are logged to memory and pushed to Telegram. Just ask *"did anything fail today?"* or *"what was the error in the last background check?"* and the agent explains in plain language — no more digging through n8n execution logs
 - **Expert agents** — delegate complex tasks to specialized sub-agents (3 included, 100+ available from [agent catalog](https://github.com/freddy-schuetz/n8n-claw-agents) across 12 categories)
 - **MCP Skills** — install pre-built skills or build new API integrations on demand
 - **Smart reminders** — timed Telegram reminders ("remind me in 2 hours to...")
@@ -102,6 +103,7 @@ Background Workflows (automated):
   🔍 Background Checker     — silent checks: only notifies when something new is found
   🧠 Memory Consolidation   — daily at 3am: summarizes conversations → long-term memory
   ⏰ Reminder Runner         — every 1 min: sends due reminders + triggers one-time actions
+  🚨 Error Notification     — catches workflow failures: Telegram alert + logs to memory_long
 
 Internal Services:
   📁 File Bridge            — temporary binary storage (documents, photos) for tool passthrough

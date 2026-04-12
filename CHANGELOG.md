@@ -5,6 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.2.3] — 2026-04-12
+
+### Error Notification Workflow + Proactive Failure Awareness
+
+Workflow failures are no longer invisible. A new global error handler catches failures in the critical workflows, sends a Telegram alert, and logs the failure to long-term memory so the agent can answer questions like *"did anything fail today?"* without the user having to check n8n manually.
+
+### Added
+- **New workflow: `error-notification.json`** — Error Trigger with parallel fan-out to Telegram alert + `memory_long` via PostgREST. The log node uses the same PostgREST pattern as "Save Conversation and Log" to avoid the pg-promise `$N` escaping bug. Error rows include `category='error'`, `importance=8`, `tags=['error','workflow-failure',<workflow>]`, and a structured `metadata` jsonb with `execution_id`, `execution_url`, `workflow_id`, `node_name`, `error_name`, `error_message`, and a truncated `error_stack`.
+- **Automatic wiring on deploy** — `setup.sh` now attaches the error workflow to the three critical workflows (`n8n-claw-agent`, `background-checker`, `sub-agent-runner`) via `settings.errorWorkflow` after import. Other workflows are reached transitively — their exceptions bubble up to these three entry points.
+- **New `error_log` agents seed** — teaches the agent when and how to proactively check for failures. Includes a hard rule: always call `memory_search` with `{"search_query":"error","category":"error"}` rather than free-text queries, because the fulltext index uses AND-semantics with no stemming (natural-language queries like *"error workflow failure recent"* silently return nothing).
+
+### Changed
+- **LLM max output tokens: 4096 → 8192** in all three Anthropic nodes (main agent, background checker, sub-agent runner). The 4096 value was a Claude 3-era legacy default that silently truncated long-form responses mid-sentence. `setup.sh` propagates this value into every provider's tokens_key at deploy time, so all providers benefit. Zero cost impact — you only pay for generated tokens, not the cap.
+
+### Upgrade from v1.2.2
+```bash
+cd n8n-claw && git pull && ./setup.sh --force
+```
+No additional steps needed. Verify with: *"did any workflow crash recently?"* — the agent should now find error entries proactively.
+
+---
+
 ## [1.2.2] — 2026-04-10
 
 ### New Skill: DZT Germany Tourism
