@@ -1,5 +1,5 @@
 {
-  "name": "Error Benachrichtigung",
+  "name": "Error Notification",
   "nodes": [
     {
       "parameters": {},
@@ -12,7 +12,7 @@
     {
       "parameters": {
         "chatId": "{{TELEGRAM_CHAT_ID}}",
-        "text": "=🚨 Fehler in {{ $json.workflow.name }}:\n\n{{ $json.execution.error.message }}",
+        "text": "=🚨 Error in {{ $json.workflow.name }}\n\n{{ $json.execution.error.message }}\n\nNode: {{ $json.execution.lastNodeExecuted }}\nExecution: {{ $json.execution.url }}",
         "additionalFields": {}
       },
       "id": "telegram-notify",
@@ -30,23 +30,13 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO memory_long (content, category, importance, tags, entity_name) VALUES ($NCLAWERR${{ 'Workflow-Fehler in \"' + $json.workflow.name + '\" (ID ' + $json.workflow.id + ') am ' + $now.toFormat('yyyy-MM-dd HH:mm') + ': ' + ($json.execution.error.message || 'unbekannter Fehler') + '. Node: ' + ($json.execution.lastNodeExecuted || 'n/a') + '. Execution: ' + ($json.execution.url || 'n/a') }}$NCLAWERR$, 'error', 8, ARRAY['error','workflow-failure', $NCLAWERR${{ $json.workflow.name }}$NCLAWERR$], $NCLAWERR${{ 'workflow:' + $json.workflow.name }}$NCLAWERR$)",
-        "options": {
-          "queryBatching": "independently"
-        }
+        "jsCode": "// Log workflow error to memory_long via PostgREST (same pattern as Save Conversation and Log — avoids pg-promise $N escaping bug)\nconst SUPABASE_URL = '{{SUPABASE_URL}}';\nconst SUPABASE_KEY = '{{SUPABASE_SERVICE_KEY}}';\nconst headers = { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };\n\nconst wf = $json.workflow || {};\nconst exec = $json.execution || {};\nconst err = exec.error || {};\nconst timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16);\n\n// Human-readable summary — what the agent reads when Memory Search returns this row\nconst content = `Workflow error in \"${wf.name}\" at ${timestamp} UTC: ${err.message || 'unknown error'}. Failed at node \"${exec.lastNodeExecuted || 'n/a'}\". Execution ${exec.id || 'n/a'}: ${exec.url || 'n/a'}`;\n\n// Structured metadata — queryable via PostgREST / SQL for targeted lookups\nconst metadata = {\n  execution_id: exec.id || null,\n  execution_url: exec.url || null,\n  execution_mode: exec.mode || null,\n  workflow_id: wf.id || null,\n  workflow_name: wf.name || null,\n  node_name: exec.lastNodeExecuted || null,\n  error_name: err.name || null,\n  error_message: err.message || null,\n  error_stack: err.stack ? String(err.stack).slice(0, 2000) : null\n};\n\nawait helpers.httpRequest({\n  method: 'POST',\n  url: `${SUPABASE_URL}/rest/v1/memory_long`,\n  headers,\n  body: JSON.stringify({\n    content,\n    category: 'error',\n    importance: 8,\n    tags: ['error', 'workflow-failure', wf.name],\n    entity_name: `workflow:${wf.name}`,\n    metadata\n  })\n});\n\nreturn [{ json: { logged: true, execution_id: exec.id, workflow: wf.name } }];"
       },
       "id": "log-error-to-db",
       "name": "Log Error to memory_long",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [240, 120],
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "Supabase Postgres"
-        }
-      },
       "continueOnFail": true
     }
   ],
