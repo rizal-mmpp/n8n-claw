@@ -1699,6 +1699,16 @@ if [ -n "$HEARTBEAT_ID" ]; then
   echo -e "  ${GREEN}✅ Heartbeat workflow activated${NC}"
 fi
 
+# Activate Webhook Adapter — safe regardless of chat channel choice.
+# Slack/Teams triggers inside it are node-level disabled and stay dormant.
+# The generic + custom webhooks are auth-protected via X-API-Key (WEBHOOK_SECRET).
+ADAPTER_ID=${WF_IDS['webhook-adapter']}
+if [ -n "$ADAPTER_ID" ]; then
+  curl -s -X POST "${N8N_BASE}/api/v1/workflows/${ADAPTER_ID}/activate" \
+    -H "X-N8N-API-KEY: ${N8N_API_KEY}" > /dev/null 2>&1
+  echo -e "  ${GREEN}✅ Webhook Adapter workflow activated${NC}"
+fi
+
 # Final deactivate/activate cycle for agent — forces Telegram webhook re-registration
 # (n8n sometimes skips webhook registration on first activate after API import)
 if [ -n "$AGENT_ID" ]; then

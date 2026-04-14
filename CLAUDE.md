@@ -166,7 +166,7 @@ A unified adapter workflow with multiple triggers for connecting external system
 - **Slack Trigger** (disabled) — native n8n Slack integration
 - **Teams Trigger** (disabled) — native n8n Teams integration
 
-Each trigger has a mapper node → calls `/webhook/agent` → routes response back via `metadata._responseChannel`. Imported by setup.sh but **not activated** — user enables what they need.
+Each trigger has a mapper node → calls `/webhook/agent` → routes response back via `metadata._responseChannel`. The workflow is **activated by setup.sh** — Slack/Teams triggers inside it are node-level disabled and stay dormant until the user enables them in the UI. Generic + custom webhooks are auth-protected via `X-API-Key` (WEBHOOK_SECRET).
 
 ### MCP Builder Pattern
 
